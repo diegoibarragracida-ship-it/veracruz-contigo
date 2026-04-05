@@ -1,0 +1,110 @@
+{
+  "project_name": "Veracruz Contigo",
+  "domain": "hybrid_fullstack (Tourism Platform & Admin Dashboard)",
+  "theme": "LIGHT",
+  "archetype": "1 (Organic & Earthy)",
+  "colors": {
+    "primary": "#1B5E20",
+    "primary_foreground": "#FFFFFF",
+    "secondary": "#0277BD",
+    "secondary_foreground": "#FFFFFF",
+    "accent": "#F9A825",
+    "accent_foreground": "#FFFFFF",
+    "background": "#F5F5F5",
+    "surface": "#FFFFFF",
+    "border": "#E5E7EB",
+    "destructive": "#D32F2F",
+    "destructive_foreground": "#FFFFFF"
+  },
+  "typography": {
+    "fonts": {
+      "heading": "Playfair Display",
+      "ui_body": "Poppins"
+    },
+    "scale": {
+      "h1": "text-5xl sm:text-6xl tracking-tight leading-none font-black",
+      "h2": "text-3xl sm:text-4xl tracking-tight font-bold",
+      "h3": "text-xl sm:text-2xl font-semibold",
+      "body": "text-base leading-relaxed",
+      "small": "text-sm uppercase tracking-[0.2em]"
+    }
+  },
+  "layout_spacing": {
+    "generous": "p-8 md:p-12 lg:p-16",
+    "bento_grid": "grid grid-cols-1 md:grid-cols-12 gap-6 lg:gap-8",
+    "admin_grid": "grid grid-cols-1 md:grid-cols-4 gap-4",
+    "radius": "rounded-2xl"
+  },
+  "components": {
+    "hero": {
+      "type": "fullscreen_image",
+      "overlay": "bg-black/40",
+      "typography": "Playfair Display, White, drop-shadow-lg",
+      "search_bar": "Overlapping bottom edge of the hero, floating glassmorphism"
+    },
+    "navigation": {
+      "style": "Glassmorphism (backdrop-blur-xl bg-white/80) on scroll, transparent at top if overlying hero",
+      "links": "Poppins, font-medium, hover:text-[#1B5E20]"
+    },
+    "panic_button": {
+      "style": "Fixed bottom-right floating action button. bg-[#D32F2F] text-white rounded-full p-4 shadow-2xl",
+      "animation": "animate-[pulse_2s_cubic-bezier(0.4,0,0.6,1)_infinite]",
+      "icon": "ShieldAlert or Siren"
+    },
+    "pueblos_magicos_grid": {
+      "style": "Bento Grid pattern. Asymmetrical. Cards have background images with soft gradient overlays. Gold accent badges (#F9A825)."
+    },
+    "directory_cards": {
+      "style": "Clean white cards (surface), rounded-2xl, subtle shadow, Poppins font. Badges for verified status."
+    },
+    "admin_dashboard": {
+      "style": "Sharp / 8px max radius, dense data layout, solid backgrounds, heavy use of tables and charts, left-aligned standard."
+    }
+  },
+  "animations": {
+    "pulse": "Use tailwind animate-pulse or a custom ping animation for the panic button",
+    "hover": "translate-y-[-4px] shadow-lg transition-all duration-300"
+  },
+  "image_urls": [
+    {
+      "category": "hero",
+      "url": "https://static.prod-images.emergentagent.com/jobs/07c629d5-0a32-4a39-ad2b-56c36d398877/images/1dfbd1ccc2e730f1e11eae34660eec121d4642954de69a16ec66025b0dfad602.png",
+      "description": "Cinematic Veracruz port and ocean"
+    },
+    {
+      "category": "pueblo_magico_featured",
+      "url": "https://static.prod-images.emergentagent.com/jobs/07c629d5-0a32-4a39-ad2b-56c36d398877/images/9f31289e3d692be5a5536974f5874e1ff3ebd7f2e93435a4161c8fa9e08fc76b.png",
+      "description": "Colorful traditional Mexican cobblestone street"
+    },
+    {
+      "category": "culture_coffee",
+      "url": "https://static.prod-images.emergentagent.com/jobs/07c629d5-0a32-4a39-ad2b-56c36d398877/images/1295d0e499e9de8ff5e4f00d6f11da8352126ebff4908f6c48d9927d0ce8dd69.png",
+      "description": "Close up of traditional Mexican coffee with plantations"
+    },
+    {
+      "category": "abstract_brand_bg",
+      "url": "https://static.prod-images.emergentagent.com/jobs/07c629d5-0a32-4a39-ad2b-56c36d398877/images/eb2be4fa45def359380efa7719ee9d02f0d077a74001167ae2d37fd1121c2770.png",
+      "description": "Jungle green and Gulf blue abstract gradient"
+    },
+    {
+      "category": "beach_activities",
+      "url": "https://images.unsplash.com/photo-1611262358765-e69d5c0afb13?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1NjZ8MHwxfHNlYXJjaHw0fHxNZXhpY28lMjBiZWFjaCUyMHRvdXJpc218ZW58MHx8fHwxNzc1MzgwODczfDA&ixlib=rb-4.1.0&q=85",
+      "description": "White and blue beach umbrellas"
+    },
+    {
+      "category": "nature_ocean",
+      "url": "https://images.unsplash.com/photo-1579153148228-796489977513?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjAzMjV8MHwxfHNlYXJjaHwyfHxWZXJhY3J1eiUyME1leGljb3xlbnwwfHx8fDE3NzUzODA4NzN8MA&ixlib=rb-4.1.0&q=85",
+      "description": "White powerboat ocean Veracruz"
+    }
+  ],
+  "instructions_to_main_agent": [
+    "INSTALLATION: Add Google Fonts 'Playfair Display' and 'Poppins' via layout or global CSS.",
+    "ICONS: Use lucide-react. Ensure to maintain consistency in sizes.",
+    "MAP: Integrate the interactive map section (Google Maps integration requested in problem statment).",
+    "COMPONENTS: Use Shadcn UI for dropdowns, inputs, tabs, and administrative tables.",
+    "DATA ATTRIBUTES: Ensure all interactive elements include 'data-testid' for testing purposes.",
+    "HERO OVERLAY: The hero image requires a bg-black/40 overlay to ensure the Playfair Display headings stand out properly.",
+    "PANIC BUTTON: Must be a fixed floating button (e.g. bottom-right), colored #D32F2F with an alert icon, leveraging the pulse animation.",
+    "LAYOUT: Adhere to Airbnb/VisitMexico level design using clear Bento Grid patterns for 'Pueblos Magicos' and clean directories for service providers."
+  ]
+}
