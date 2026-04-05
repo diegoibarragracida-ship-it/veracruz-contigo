@@ -9,7 +9,7 @@ import EventoCard from "@/components/EventoCard";
 import PanicButton from "@/components/PanicButton";
 import AlertBanner from "@/components/AlertBanner";
 import { Link } from "react-router-dom";
-import { MapPin, Calendar, Users, ShieldAlert, BookOpen, Star, ChevronRight, Shield, BadgeCheck, Heart } from "lucide-react";
+import { MapPin, Calendar, Users, ShieldAlert, BookOpen, Star, ChevronRight, Shield, BadgeCheck, Heart, CloudSun, Thermometer, Droplets, Wind } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 const HomePage = () => {
@@ -160,8 +160,58 @@ const HomePage = () => {
         </div>
       </section>
 
+      {/* Weather Section */}
+      <section className="py-16 px-4 bg-white" data-testid="weather-section">
+        <div className="max-w-7xl mx-auto">
+          <div className="flex items-center gap-2 mb-2">
+            <CloudSun className="w-6 h-6 text-[#0277BD]" />
+            <span className="text-[#0277BD] font-semibold uppercase tracking-wider text-sm">Clima actual</span>
+          </div>
+          <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-8" style={{ fontFamily: 'Playfair Display' }}>
+            El Tiempo en Veracruz
+          </h2>
+          
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+            {[
+              { ciudad: "Xalapa", temp: 18, condicion: "Nublado con niebla", humedad: 78, viento: 12, icon: "cloud-fog", color: "from-slate-500 to-slate-700" },
+              { ciudad: "Veracruz", temp: 29, condicion: "Soleado", humedad: 65, viento: 18, icon: "sun", color: "from-amber-400 to-orange-500" },
+              { ciudad: "Orizaba", temp: 20, condicion: "Parcialmente nublado", humedad: 60, viento: 8, icon: "cloud-sun", color: "from-sky-400 to-blue-600" },
+              { ciudad: "Coatepec", temp: 17, condicion: "Neblina", humedad: 82, viento: 6, icon: "cloud-fog", color: "from-emerald-500 to-teal-700" },
+            ].map((w) => (
+              <div 
+                key={w.ciudad}
+                className={`relative overflow-hidden rounded-2xl bg-gradient-to-br ${w.color} p-6 text-white shadow-lg`}
+                data-testid={`weather-card-${w.ciudad.toLowerCase()}`}
+              >
+                <div className="absolute top-0 right-0 opacity-10">
+                  <CloudSun className="w-32 h-32 -mt-6 -mr-6" />
+                </div>
+                <div className="relative z-10">
+                  <p className="text-white/80 text-sm font-medium mb-1">{w.ciudad}</p>
+                  <div className="flex items-end gap-2 mb-3">
+                    <span className="text-5xl font-bold leading-none">{w.temp}°</span>
+                    <span className="text-white/70 text-sm pb-1">C</span>
+                  </div>
+                  <p className="text-white/90 text-sm font-medium mb-4">{w.condicion}</p>
+                  <div className="flex items-center gap-4 text-white/70 text-xs">
+                    <span className="flex items-center gap-1">
+                      <Droplets className="w-3.5 h-3.5" />
+                      {w.humedad}%
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <Wind className="w-3.5 h-3.5" />
+                      {w.viento} km/h
+                    </span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* Events Section */}
-      <section className="py-20 px-4 bg-white" data-testid="eventos-section">
+      <section className="py-20 px-4" data-testid="eventos-section">
         <div className="max-w-7xl mx-auto">
           <div className="flex items-center justify-between mb-10">
             <div>
