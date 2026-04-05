@@ -1,11 +1,11 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
+import { useLanguage } from "@/i18n/LanguageContext";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import PanicButton from "@/components/PanicButton";
 import { MapPin, Clock, Calendar, ChevronRight, Star, Mountain, Waves, Utensils, Landmark, TreePine, Sun, Moon, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const rutas = [
   {
@@ -461,6 +461,7 @@ const RutaDetalle = ({ ruta, onBack }) => (
 
 export default function RutasPage() {
   const [selectedRuta, setSelectedRuta] = useState(null);
+  const { t } = useLanguage();
   const ruta = rutas.find(r => r.id === selectedRuta);
 
   return (
@@ -481,8 +482,7 @@ export default function RutasPage() {
                   Rutas de Viaje
                 </h1>
                 <p className="text-gray-600 max-w-2xl mx-auto text-base">
-                  Itinerarios cuidadosamente diseñados para que aproveches cada momento 
-                  en Veracruz. Elige tu aventura según el tiempo que tengas.
+                  {t("routes.subtitle")}
                 </p>
               </div>
 
@@ -520,30 +520,27 @@ export default function RutasPage() {
                     <div className="w-12 h-12 bg-[#1B5E20]/10 rounded-full mx-auto mb-3 flex items-center justify-center">
                       <Sun className="w-6 h-6 text-[#1B5E20]" />
                     </div>
-                    <h3 className="font-semibold text-gray-900 mb-2">Mejor Época</h3>
+                    <h3 className="font-semibold text-gray-900 mb-2">{t("routes.bestTime")}</h3>
                     <p className="text-sm text-gray-600">
-                      Octubre a mayo es ideal. Evita temporada de lluvias (junio-septiembre) 
-                      si planeas actividades al aire libre.
+                      {t("routes.bestTimeDesc")}
                     </p>
                   </div>
                   <div className="text-center p-4">
                     <div className="w-12 h-12 bg-[#1B5E20]/10 rounded-full mx-auto mb-3 flex items-center justify-center">
                       <MapPin className="w-6 h-6 text-[#1B5E20]" />
                     </div>
-                    <h3 className="font-semibold text-gray-900 mb-2">Transporte</h3>
+                    <h3 className="font-semibold text-gray-900 mb-2">{t("routes.transport")}</h3>
                     <p className="text-sm text-gray-600">
-                      Renta un auto para mayor flexibilidad. Autobuses ADO conectan las 
-                      ciudades principales con frecuencia.
+                      {t("routes.transportDesc")}
                     </p>
                   </div>
                   <div className="text-center p-4">
                     <div className="w-12 h-12 bg-[#1B5E20]/10 rounded-full mx-auto mb-3 flex items-center justify-center">
                       <Utensils className="w-6 h-6 text-[#1B5E20]" />
                     </div>
-                    <h3 className="font-semibold text-gray-900 mb-2">Gastronomía</h3>
+                    <h3 className="font-semibold text-gray-900 mb-2">{t("routes.gastronomy")}</h3>
                     <p className="text-sm text-gray-600">
-                      No te vayas sin probar: café de Coatepec, mole xiqueño, mariscos del 
-                      puerto y el pan de Orizaba.
+                      {t("routes.gastronomyDesc")}
                     </p>
                   </div>
                 </div>

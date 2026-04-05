@@ -3,6 +3,8 @@ import "@/App.css";
 import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate } from "react-router-dom";
 import axios from "axios";
 import { Toaster } from "@/components/ui/sonner";
+import { LanguageProvider } from "@/i18n/LanguageContext";
+import OnboardingModal from "@/components/OnboardingModal";
 
 // Pages
 import HomePage from "@/pages/HomePage";
@@ -42,6 +44,7 @@ export const useAuth = () => {
 const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [showOnboarding, setShowOnboarding] = useState(false);
 
   const checkAuth = async () => {
     // CRITICAL: If returning from OAuth callback, skip the /me check.
@@ -65,9 +68,18 @@ const AuthProvider = ({ children }) => {
     checkAuth();
   }, []);
 
+  const triggerOnboarding = (userData) => {
+    const onboardingKey = `vc_onboarding_${userData.user_id || userData.email}`;
+    if (!localStorage.getItem(onboardingKey)) {
+      localStorage.setItem(onboardingKey, "true");
+      setShowOnboarding(true);
+    }
+  };
+
   const login = async (email, password) => {
     const response = await axios.post(`${API}/auth/login`, { email, password });
     setUser(response.data);
+    triggerOnboarding(response.data);
     return response.data;
   };
 
@@ -84,6 +96,7 @@ const AuthProvider = ({ children }) => {
       console.error("Logout error:", error);
     }
     setUser(null);
+    setShowOnboarding(false);
   };
 
   const value = {
@@ -93,6 +106,9 @@ const AuthProvider = ({ children }) => {
     login,
     loginWithGoogle,
     logout,
+    showOnboarding,
+    setShowOnboarding,
+    triggerOnboarding,
     isAuthenticated: !!user,
     isSuperAdmin: user?.rol === "superadmin",
     isEncargado: user?.rol === "encargado",
@@ -106,7 +122,7 @@ const AuthProvider = ({ children }) => {
 // Auth Callback Component
 const AuthCallback = () => {
   const navigate = useNavigate();
-  const { setUser } = useAuth();
+  const { setUser, triggerOnboarding } = useAuth();
   const hasProcessed = useRef(false);
 
   useEffect(() => {
@@ -125,6 +141,7 @@ const AuthCallback = () => {
       try {
         const response = await axios.post(`${API}/auth/session`, { session_id: sessionId });
         setUser(response.data);
+        triggerOnboarding(response.data);
         
         // Redirect based on role
         const role = response.data.rol;
@@ -253,13 +270,23 @@ const NotFoundPage = () => (
   </div>
 );
 
+// Onboarding Wrapper
+const OnboardingWrapper = () => {
+  const { user, showOnboarding, setShowOnboarding } = useAuth();
+  if (!showOnboarding || !user) return null;
+  return <OnboardingModal role={user.rol} onClose={() => setShowOnboarding(false)} />;
+};
+
 function App() {
   return (
     <BrowserRouter>
-      <AuthProvider>
-        <AppRouter />
-        <Toaster position="top-right" richColors />
-      </AuthProvider>
+      <LanguageProvider>
+        <AuthProvider>
+          <AppRouter />
+          <OnboardingWrapper />
+          <Toaster position="top-right" richColors />
+        </AuthProvider>
+      </LanguageProvider>
     </BrowserRouter>
   );
 }

@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import axios from "axios";
 import { API } from "@/App";
+import { useLanguage } from "@/i18n/LanguageContext";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import SearchBar from "@/components/SearchBar";
@@ -13,6 +14,7 @@ import { MapPin, Calendar, Users, ShieldAlert, BookOpen, Star, ChevronRight, Shi
 import { Button } from "@/components/ui/button";
 
 const HomePage = () => {
+  const { t } = useLanguage();
   const [municipios, setMunicipios] = useState([]);
   const [pueblosMagicos, setPueblosMagicos] = useState([]);
   const [eventos, setEventos] = useState([]);
@@ -46,17 +48,17 @@ const HomePage = () => {
   const heroImage = "https://static.prod-images.emergentagent.com/jobs/07c629d5-0a32-4a39-ad2b-56c36d398877/images/1dfbd1ccc2e730f1e11eae34660eec121d4642954de69a16ec66025b0dfad602.png";
 
   const quickLinks = [
-    { href: "/explorar", label: "Explorar", icon: MapPin, color: "bg-[#1B5E20]" },
-    { href: "/rutas", label: "Rutas", icon: BookOpen, color: "bg-[#6A1B9A]" },
-    { href: "/emergencia", label: "Emergencias", icon: ShieldAlert, color: "bg-[#D32F2F]" },
-    { href: "/eventos", label: "Eventos", icon: Calendar, color: "bg-[#0277BD]" },
-    { href: "/prestadores", label: "Prestadores", icon: Users, color: "bg-[#F9A825]" },
+    { href: "/explorar", labelKey: "nav.explore", icon: MapPin, color: "bg-[#1B5E20]" },
+    { href: "/rutas", labelKey: "nav.routes", icon: BookOpen, color: "bg-[#6A1B9A]" },
+    { href: "/emergencia", labelKey: "nav.emergencies", icon: ShieldAlert, color: "bg-[#D32F2F]" },
+    { href: "/eventos", labelKey: "nav.events", icon: Calendar, color: "bg-[#0277BD]" },
+    { href: "/prestadores", labelKey: "nav.providers", icon: Users, color: "bg-[#F9A825]" },
   ];
 
   const features = [
-    { icon: Shield, title: "Viaja con Seguridad", description: "Botón de pánico con GPS para emergencias las 24 horas" },
-    { icon: BadgeCheck, title: "Prestadores Verificados", description: "Servicios turísticos revisados y certificados" },
-    { icon: Heart, title: "Experiencias Auténticas", description: "Descubre la verdadera esencia de Veracruz" },
+    { icon: Shield, titleKey: "features.safety", descKey: "features.safetyDesc" },
+    { icon: BadgeCheck, titleKey: "features.verified", descKey: "features.verifiedDesc" },
+    { icon: Heart, titleKey: "features.authentic", descKey: "features.authenticDesc" },
   ];
 
   return (
@@ -80,11 +82,10 @@ const HomePage = () => {
             style={{ fontFamily: 'Playfair Display' }}
             data-testid="hero-title"
           >
-            Veracruz te espera
+            {t("hero.title")}
           </h1>
           <p className="text-xl sm:text-2xl text-white/90 mb-8 max-w-2xl mx-auto">
-            Explora con seguridad. Descubre la magia de nuestros 232 municipios, 
-            playas paradisíacas y la mejor gastronomía de México.
+            {t("hero.subtitle")}
           </p>
           
           {/* Search Bar */}
@@ -99,10 +100,10 @@ const HomePage = () => {
                 key={link.href}
                 to={link.href}
                 className={`flex items-center gap-2 px-6 py-3 ${link.color} text-white rounded-xl font-medium hover:opacity-90 transition-opacity shadow-lg`}
-                data-testid={`quick-link-${link.label.toLowerCase()}`}
+                data-testid={`quick-link-${link.href.slice(1)}`}
               >
                 <link.icon className="w-5 h-5" />
-                {link.label}
+                {t(link.labelKey)}
               </Link>
             ))}
           </div>
@@ -123,14 +124,14 @@ const HomePage = () => {
             <div>
               <div className="flex items-center gap-2 mb-2">
                 <Star className="w-6 h-6 text-[#F9A825]" />
-                <span className="text-[#F9A825] font-semibold uppercase tracking-wider text-sm">Destinos destacados</span>
+                <span className="text-[#F9A825] font-semibold uppercase tracking-wider text-sm">{t("sections.featuredDestinations")}</span>
               </div>
               <h2 className="text-3xl sm:text-4xl font-bold text-gray-900" style={{ fontFamily: 'Playfair Display' }}>
-                Pueblos Mágicos de Veracruz
+                {t("sections.pueblosMagicos")}
               </h2>
             </div>
             <Link to="/explorar?filter=pueblo_magico" className="hidden md:flex items-center gap-2 text-[#1B5E20] font-medium hover:underline">
-              Ver todos
+              {t("sections.viewAll")}
               <ChevronRight className="w-5 h-5" />
             </Link>
           </div>
@@ -165,18 +166,18 @@ const HomePage = () => {
         <div className="max-w-7xl mx-auto">
           <div className="flex items-center gap-2 mb-2">
             <CloudSun className="w-6 h-6 text-[#0277BD]" />
-            <span className="text-[#0277BD] font-semibold uppercase tracking-wider text-sm">Clima actual</span>
+            <span className="text-[#0277BD] font-semibold uppercase tracking-wider text-sm">{t("sections.currentWeather")}</span>
           </div>
           <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-8" style={{ fontFamily: 'Playfair Display' }}>
-            El Tiempo en Veracruz
+            {t("sections.weatherTitle")}
           </h2>
           
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
             {[
-              { ciudad: "Xalapa", temp: 18, condicion: "Nublado con niebla", humedad: 78, viento: 12, icon: "cloud-fog", color: "from-slate-500 to-slate-700" },
-              { ciudad: "Veracruz", temp: 29, condicion: "Soleado", humedad: 65, viento: 18, icon: "sun", color: "from-amber-400 to-orange-500" },
-              { ciudad: "Orizaba", temp: 20, condicion: "Parcialmente nublado", humedad: 60, viento: 8, icon: "cloud-sun", color: "from-sky-400 to-blue-600" },
-              { ciudad: "Coatepec", temp: 17, condicion: "Neblina", humedad: 82, viento: 6, icon: "cloud-fog", color: "from-emerald-500 to-teal-700" },
+              { ciudad: "Xalapa", temp: 18, condicionKey: "weather.cloudy", humedad: 78, viento: 12, color: "from-slate-500 to-slate-700" },
+              { ciudad: "Veracruz", temp: 29, condicionKey: "weather.sunny", humedad: 65, viento: 18, color: "from-amber-400 to-orange-500" },
+              { ciudad: "Orizaba", temp: 20, condicionKey: "weather.partlyCloudy", humedad: 60, viento: 8, color: "from-sky-400 to-blue-600" },
+              { ciudad: "Coatepec", temp: 17, condicionKey: "weather.foggy", humedad: 82, viento: 6, color: "from-emerald-500 to-teal-700" },
             ].map((w) => (
               <div 
                 key={w.ciudad}
@@ -192,7 +193,7 @@ const HomePage = () => {
                     <span className="text-5xl font-bold leading-none">{w.temp}°</span>
                     <span className="text-white/70 text-sm pb-1">C</span>
                   </div>
-                  <p className="text-white/90 text-sm font-medium mb-4">{w.condicion}</p>
+                  <p className="text-white/90 text-sm font-medium mb-4">{t(w.condicionKey)}</p>
                   <div className="flex items-center gap-4 text-white/70 text-xs">
                     <span className="flex items-center gap-1">
                       <Droplets className="w-3.5 h-3.5" />
@@ -217,14 +218,14 @@ const HomePage = () => {
             <div>
               <div className="flex items-center gap-2 mb-2">
                 <Calendar className="w-6 h-6 text-[#0277BD]" />
-                <span className="text-[#0277BD] font-semibold uppercase tracking-wider text-sm">Agenda cultural</span>
+                <span className="text-[#0277BD] font-semibold uppercase tracking-wider text-sm">{t("sections.culturalAgenda")}</span>
               </div>
               <h2 className="text-3xl sm:text-4xl font-bold text-gray-900" style={{ fontFamily: 'Playfair Display' }}>
-                Próximos Eventos
+                {t("sections.upcomingEvents")}
               </h2>
             </div>
             <Link to="/eventos" className="hidden md:flex items-center gap-2 text-[#1B5E20] font-medium hover:underline">
-              Ver todos
+              {t("sections.viewAll")}
               <ChevronRight className="w-5 h-5" />
             </Link>
           </div>
@@ -238,7 +239,7 @@ const HomePage = () => {
           {eventos.length === 0 && !loading && (
             <div className="text-center py-12 text-gray-500">
               <Calendar className="w-12 h-12 mx-auto mb-4 opacity-50" />
-              <p>Próximamente más eventos</p>
+              <p>{t("sections.comingSoonEvents")}</p>
             </div>
           )}
         </div>
@@ -248,10 +249,10 @@ const HomePage = () => {
       <section className="py-20 px-4 bg-gradient-to-br from-[#1B5E20] to-[#0D3311]" data-testid="features-section">
         <div className="max-w-7xl mx-auto text-center">
           <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4" style={{ fontFamily: 'Playfair Display' }}>
-            ¿Por qué Veracruz Contigo?
+            {t("sections.whyUs")}
           </h2>
           <p className="text-white/80 mb-12 max-w-2xl mx-auto">
-            La plataforma oficial de turismo que te acompaña en cada paso de tu aventura
+            {t("sections.whyUsSub")}
           </p>
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
@@ -260,8 +261,8 @@ const HomePage = () => {
                 <div className="w-14 h-14 bg-white/20 rounded-xl flex items-center justify-center mb-6">
                   <feature.icon className="w-7 h-7 text-white" />
                 </div>
-                <h3 className="text-xl font-semibold text-white mb-3">{feature.title}</h3>
-                <p className="text-white/70">{feature.description}</p>
+                <h3 className="text-xl font-semibold text-white mb-3">{t(feature.titleKey)}</h3>
+                <p className="text-white/70">{t(feature.descKey)}</p>
               </div>
             ))}
           </div>
@@ -298,7 +299,7 @@ const HomePage = () => {
               <Link to="/explorar">
                 <Button className="bg-[#1B5E20] hover:bg-[#145218] text-white px-8 py-6 text-lg rounded-xl">
                   <MapPin className="w-5 h-5 mr-2" />
-                  Explorar todos los municipios
+                  {t("sections.exploreAll")}
                 </Button>
               </Link>
             </div>

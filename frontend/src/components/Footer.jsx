@@ -1,9 +1,11 @@
 import { Link } from "react-router-dom";
+import { useLanguage } from "@/i18n/LanguageContext";
 import { MapPin, Phone, Mail, Facebook, Instagram, Twitter } from "lucide-react";
 
 const GOV_LOGO = "https://customer-assets.emergentagent.com/job_36d8b249-864b-4a0f-9434-3e429d7d03e6/artifacts/hwuns2om_image.png";
 
 const Footer = () => {
+  const { t } = useLanguage();
   return (
     <footer className="bg-[#1B5E20] text-white" data-testid="footer">
       {/* Government Institutional Strip */}
@@ -51,36 +53,36 @@ const Footer = () => {
 
           {/* Quick Links */}
           <div>
-            <h3 className="font-semibold text-lg mb-4">Explorar</h3>
+            <h3 className="font-semibold text-lg mb-4">{t("footer.explore")}</h3>
             <ul className="space-y-2">
               <li>
                 <Link to="/explorar" className="text-white/80 hover:text-white transition-colors">
-                  Municipios
+                  {t("footer.municipalities")}
                 </Link>
               </li>
               <li>
                 <Link to="/explorar?filter=pueblo_magico" className="text-white/80 hover:text-white transition-colors">
-                  Pueblos Mágicos
+                  {t("footer.pueblosMagicos")}
                 </Link>
               </li>
               <li>
                 <Link to="/eventos" className="text-white/80 hover:text-white transition-colors">
-                  Eventos
+                  {t("footer.events")}
                 </Link>
               </li>
               <li>
                 <Link to="/prestadores" className="text-white/80 hover:text-white transition-colors">
-                  Prestadores
+                  {t("footer.providers")}
                 </Link>
               </li>
               <li>
                 <Link to="/rutas" className="text-white/80 hover:text-white transition-colors">
-                  Rutas de Viaje
+                  {t("footer.travelRoutes")}
                 </Link>
               </li>
               <li>
                 <Link to="/guia" className="text-white/80 hover:text-white transition-colors">
-                  Guía Turística
+                  {t("footer.touristGuide")}
                 </Link>
               </li>
             </ul>
@@ -88,26 +90,26 @@ const Footer = () => {
 
           {/* Information */}
           <div>
-            <h3 className="font-semibold text-lg mb-4">Información</h3>
+            <h3 className="font-semibold text-lg mb-4">{t("footer.information")}</h3>
             <ul className="space-y-2">
               <li>
                 <a href="#" className="text-white/80 hover:text-white transition-colors">
-                  Aviso de privacidad
+                  {t("footer.privacy")}
                 </a>
               </li>
               <li>
                 <a href="#" className="text-white/80 hover:text-white transition-colors">
-                  Términos de uso
+                  {t("footer.terms")}
                 </a>
               </li>
               <li>
                 <a href="#" className="text-white/80 hover:text-white transition-colors">
-                  Preguntas frecuentes
+                  {t("footer.faq")}
                 </a>
               </li>
               <li>
                 <Link to="/emergencia" className="text-white/80 hover:text-white transition-colors">
-                  Emergencias
+                  {t("footer.emergencies")}
                 </Link>
               </li>
             </ul>
@@ -115,7 +117,7 @@ const Footer = () => {
 
           {/* Contact */}
           <div>
-            <h3 className="font-semibold text-lg mb-4">Contacto</h3>
+            <h3 className="font-semibold text-lg mb-4">{t("footer.contact")}</h3>
             <ul className="space-y-3">
               <li className="flex items-start gap-3">
                 <MapPin className="w-5 h-5 mt-0.5 flex-shrink-0" />
@@ -139,10 +141,10 @@ const Footer = () => {
         <div className="mt-12 pt-8 border-t border-white/20">
           <div className="flex flex-col md:flex-row items-center justify-between gap-4">
             <p className="text-white/60 text-sm text-center md:text-left">
-              &copy; 2026 Veracruz Contigo. Gobierno del Estado de Veracruz 2024-2030. Todos los derechos reservados.
+              {t("footer.copyright")}
             </p>
             <div className="flex items-center gap-2">
-              <span className="text-white/60 text-sm font-medium">Por Amor a Veracruz</span>
+              <span className="text-white/60 text-sm font-medium">{t("footer.slogan")}</span>
             </div>
           </div>
         </div>
