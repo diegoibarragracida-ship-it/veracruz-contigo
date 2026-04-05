@@ -164,6 +164,14 @@ Sistema multi-rol con 4 niveles de usuarios para gestionar información turísti
 - Modal stepper con 4 pasos, indicadores, Siguiente/Omitir/Entendido
 - Fix: removeChild error en Header (fragment → div)
 
+### 05/04/2026 - Chatbot VeraCruz AI v1.5
+- Chatbot turístico con GPT-5.2 vía Emergent LLM Key (gratuito)
+- Flotante en esquina inferior derecha, disponible en todas las páginas
+- Usa datos reales de la plataforma (municipios, eventos, prestadores) como contexto
+- Responde en el idioma seleccionado (ES/EN/FR)
+- Almacena historial de conversaciones en MongoDB
+- Endpoints: POST /api/chat, GET /api/chat/history/{session_id}
+
 ### Integraciones
 - **Google OAuth:** Via Emergent Auth
 - **Object Storage:** Emergent Object Storage
