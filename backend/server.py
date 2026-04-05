@@ -1,89 +1,1749 @@
-from fastapi import FastAPI, APIRouter
 from dotenv import load_dotenv
+from pathlib import Path
+
+ROOT_DIR = Path(__file__).parent
+load_dotenv(ROOT_DIR / '.env')
+
+from fastapi import FastAPI, APIRouter, HTTPException, Request, Response, UploadFile, File, Query, Header, Depends
+from fastapi.responses import JSONResponse
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 import os
 import logging
-from pathlib import Path
-from pydantic import BaseModel, Field, ConfigDict
-from typing import List
+from pydantic import BaseModel, Field, ConfigDict, EmailStr
+from typing import List, Optional, Dict, Any
 import uuid
-from datetime import datetime, timezone
-
-
-ROOT_DIR = Path(__file__).parent
-load_dotenv(ROOT_DIR / '.env')
+from datetime import datetime, timezone, timedelta
+import bcrypt
+import jwt
+import requests
+import re
 
 # MongoDB connection
 mongo_url = os.environ['MONGO_URL']
 client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ['DB_NAME']]
 
-# Create the main app without a prefix
-app = FastAPI()
+# JWT Config
+JWT_SECRET = os.environ.get('JWT_SECRET', 'default_secret_change_me')
+JWT_ALGORITHM = "HS256"
+
+# Object Storage Config
+STORAGE_URL = "https://integrations.emergentagent.com/objstore/api/v1/storage"
+EMERGENT_KEY = os.environ.get("EMERGENT_LLM_KEY", "")
+APP_NAME = "veracruz-contigo"
+storage_key = None
+
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
+
+# Create the main app
+app = FastAPI(title="Veracruz Contigo API")
 
 # Create a router with the /api prefix
 api_router = APIRouter(prefix="/api")
 
+# ============== PYDANTIC MODELS ==============
 
-# Define Models
-class StatusCheck(BaseModel):
-    model_config = ConfigDict(extra="ignore")  # Ignore MongoDB's _id field
+class UserBase(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    email: str
+    nombre: str
+    foto_url: Optional[str] = None
+
+class UserCreate(BaseModel):
+    email: str
+    password: str
+    nombre: str
+    rol: str = "turista"
+    municipio_id: Optional[str] = None
+
+class UserLogin(BaseModel):
+    email: str
+    password: str
+
+class UserResponse(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    user_id: str
+    email: str
+    nombre: str
+    foto_url: Optional[str] = None
+    rol: str
+    municipio_id: Optional[str] = None
+    activo: bool = True
+    fecha_registro: Optional[str] = None
+
+class MunicipioBase(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str
+    nombre: str
+    slug: str
+    region: str
+    descripcion: Optional[str] = None
+    historia: Optional[str] = None
+    que_hacer: List[str] = []
+    como_llegar: Optional[str] = None
+    clima: Optional[str] = None
+    altitud: Optional[str] = None
+    tags: List[str] = []
+    foto_portada_url: Optional[str] = None
+    fotos: List[Dict[str, Any]] = []
+    videos: List[str] = []
+    pueblo_magico: bool = False
+    encargado_id: Optional[str] = None
+    estado: str = "sin_configurar"
+    lat: float
+    lng: float
+    visitas_total: int = 0
+
+class MunicipioUpdate(BaseModel):
+    descripcion: Optional[str] = None
+    historia: Optional[str] = None
+    que_hacer: Optional[List[str]] = None
+    como_llegar: Optional[str] = None
+    clima: Optional[str] = None
+    altitud: Optional[str] = None
+    tags: Optional[List[str]] = None
+    foto_portada_url: Optional[str] = None
+    fotos: Optional[List[Dict[str, Any]]] = None
+    videos: Optional[List[str]] = None
+    estado: Optional[str] = None
+
+class PrestadorBase(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str
+    nombre: str
+    tipo: str
+    subtipo: Optional[str] = None
+    municipio_id: str
+    descripcion: Optional[str] = None
+    foto_url: Optional[str] = None
+    telefono: Optional[str] = None
+    whatsapp: Optional[str] = None
+    horarios: Optional[str] = None
+    direccion: Optional[str] = None
+    calificacion_promedio: float = 0.0
+    total_resenas: int = 0
+    verificado: bool = False
+    activo: bool = True
+    lat: Optional[float] = None
+    lng: Optional[float] = None
+    propuesto_por_id: Optional[str] = None
+    aprobado_por_id: Optional[str] = None
+    user_id: Optional[str] = None
+
+class PrestadorCreate(BaseModel):
+    nombre: str
+    tipo: str
+    subtipo: Optional[str] = None
+    municipio_id: str
+    descripcion: Optional[str] = None
+    foto_url: Optional[str] = None
+    telefono: Optional[str] = None
+    whatsapp: Optional[str] = None
+    horarios: Optional[str] = None
+    direccion: Optional[str] = None
+
+class EventoBase(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str
+    nombre: str
+    municipio_id: str
+    fecha_inicio: str
+    fecha_fin: Optional[str] = None
+    descripcion: Optional[str] = None
+    foto_url: Optional[str] = None
+    tipo: str
+    lugar: Optional[str] = None
+    link_externo: Optional[str] = None
+    publicado: bool = False
+    created_by: Optional[str] = None
+
+class EventoCreate(BaseModel):
+    nombre: str
+    municipio_id: str
+    fecha_inicio: str
+    fecha_fin: Optional[str] = None
+    descripcion: Optional[str] = None
+    foto_url: Optional[str] = None
+    tipo: str
+    lugar: Optional[str] = None
+    link_externo: Optional[str] = None
+    publicado: bool = False
+
+class AlertaBase(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str
+    titulo: str
+    descripcion: str
+    tipo: str
+    municipios_afectados: List[str] = []
+    activa: bool = True
+    fecha_inicio: str
+    fecha_fin: Optional[str] = None
+    creada_por: Optional[str] = None
+
+class AlertaCreate(BaseModel):
+    titulo: str
+    descripcion: str
+    tipo: str
+    municipios_afectados: List[str] = []
+    fecha_fin: Optional[str] = None
+
+class EmergenciaBase(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str
+    user_id: str
+    nombre_turista: str
+    email_turista: Optional[str] = None
+    lat: float
+    lng: float
+    timestamp: str
+    estado: str = "activa"
+    resuelta_por: Optional[str] = None
+    notas_resolucion: Optional[str] = None
+
+class EmergenciaCreate(BaseModel):
+    lat: float
+    lng: float
+
+class ResenaBase(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str
+    turista_id: str
+    prestador_id: str
+    calificacion: int
+    texto: Optional[str] = None
+    fecha: str
+    editada: bool = False
+
+class ResenaCreate(BaseModel):
+    prestador_id: str
+    calificacion: int
+    texto: Optional[str] = None
+
+class FavoritoBase(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str
+    user_id: str
+    tipo: str
+    referencia_id: str
+    fecha: str
+
+class SolicitudPrestadorBase(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str
+    datos_prestador: Dict[str, Any]
+    municipio_id: str
+    encargado_id: str
+    estado: str = "pendiente"
+    comentario_admin: Optional[str] = None
+    fecha_solicitud: str
+    fecha_resolucion: Optional[str] = None
+
+# ============== HELPER FUNCTIONS ==============
+
+def hash_password(password: str) -> str:
+    salt = bcrypt.gensalt()
+    hashed = bcrypt.hashpw(password.encode("utf-8"), salt)
+    return hashed.decode("utf-8")
+
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    return bcrypt.checkpw(plain_password.encode("utf-8"), hashed_password.encode("utf-8"))
+
+def create_access_token(user_id: str, email: str, rol: str) -> str:
+    payload = {
+        "sub": user_id,
+        "email": email,
+        "rol": rol,
+        "exp": datetime.now(timezone.utc) + timedelta(hours=24),
+        "type": "access"
+    }
+    return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
+
+def create_refresh_token(user_id: str) -> str:
+    payload = {
+        "sub": user_id,
+        "exp": datetime.now(timezone.utc) + timedelta(days=7),
+        "type": "refresh"
+    }
+    return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
+
+async def get_current_user(request: Request) -> dict:
+    token = request.cookies.get("access_token")
+    if not token:
+        auth_header = request.headers.get("Authorization", "")
+        if auth_header.startswith("Bearer "):
+            token = auth_header[7:]
+    if not token:
+        raise HTTPException(status_code=401, detail="No autenticado")
+    try:
+        payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        if payload.get("type") != "access":
+            raise HTTPException(status_code=401, detail="Tipo de token inválido")
+        user = await db.usuarios.find_one({"user_id": payload["sub"]}, {"_id": 0})
+        if not user:
+            raise HTTPException(status_code=401, detail="Usuario no encontrado")
+        user.pop("password_hash", None)
+        return user
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token expirado")
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Token inválido")
+
+async def get_optional_user(request: Request) -> Optional[dict]:
+    try:
+        return await get_current_user(request)
+    except HTTPException:
+        return None
+
+def require_role(*roles):
+    async def role_checker(request: Request):
+        user = await get_current_user(request)
+        if user["rol"] not in roles:
+            raise HTTPException(status_code=403, detail="No tienes permiso para esta acción")
+        return user
+    return role_checker
+
+def slugify(text: str) -> str:
+    text = text.lower().strip()
+    text = re.sub(r'[áàäâ]', 'a', text)
+    text = re.sub(r'[éèëê]', 'e', text)
+    text = re.sub(r'[íìïî]', 'i', text)
+    text = re.sub(r'[óòöô]', 'o', text)
+    text = re.sub(r'[úùüû]', 'u', text)
+    text = re.sub(r'[ñ]', 'n', text)
+    text = re.sub(r'[^a-z0-9\s-]', '', text)
+    text = re.sub(r'[\s_]+', '-', text)
+    text = re.sub(r'-+', '-', text)
+    return text.strip('-')
+
+# Object Storage Functions
+def init_storage():
+    global storage_key
+    if storage_key:
+        return storage_key
+    if not EMERGENT_KEY:
+        logger.warning("EMERGENT_LLM_KEY not set, storage disabled")
+        return None
+    try:
+        resp = requests.post(f"{STORAGE_URL}/init", json={"emergent_key": EMERGENT_KEY}, timeout=30)
+        resp.raise_for_status()
+        storage_key = resp.json()["storage_key"]
+        logger.info("Storage initialized successfully")
+        return storage_key
+    except Exception as e:
+        logger.error(f"Storage init failed: {e}")
+        return None
+
+def put_object(path: str, data: bytes, content_type: str) -> dict:
+    key = init_storage()
+    if not key:
+        raise HTTPException(status_code=500, detail="Storage not available")
+    resp = requests.put(
+        f"{STORAGE_URL}/objects/{path}",
+        headers={"X-Storage-Key": key, "Content-Type": content_type},
+        data=data, timeout=120
+    )
+    resp.raise_for_status()
+    return resp.json()
+
+def get_object(path: str) -> tuple:
+    key = init_storage()
+    if not key:
+        raise HTTPException(status_code=500, detail="Storage not available")
+    resp = requests.get(
+        f"{STORAGE_URL}/objects/{path}",
+        headers={"X-Storage-Key": key}, timeout=60
+    )
+    resp.raise_for_status()
+    return resp.content, resp.headers.get("Content-Type", "application/octet-stream")
+
+# ============== SEED DATA - 232 MUNICIPIOS DE VERACRUZ ==============
+
+MUNICIPIOS_VERACRUZ = [
+    {"nombre": "Veracruz", "region": "Centro", "lat": 19.1738, "lng": -96.1342, "pueblo_magico": False},
+    {"nombre": "Xalapa", "region": "Centro", "lat": 19.5438, "lng": -96.9102, "pueblo_magico": False},
+    {"nombre": "Coatepec", "region": "Centro", "lat": 19.4524, "lng": -96.9614, "pueblo_magico": True},
+    {"nombre": "Xico", "region": "Centro", "lat": 19.4180, "lng": -97.0080, "pueblo_magico": True},
+    {"nombre": "Papantla", "region": "Norte", "lat": 20.4547, "lng": -97.3222, "pueblo_magico": True},
+    {"nombre": "Tlacotalpan", "region": "Sur", "lat": 18.6167, "lng": -95.6667, "pueblo_magico": True},
+    {"nombre": "Orizaba", "region": "Centro", "lat": 18.8500, "lng": -97.1000, "pueblo_magico": True},
+    {"nombre": "Córdoba", "region": "Centro", "lat": 18.8833, "lng": -96.9333, "pueblo_magico": False},
+    {"nombre": "Boca del Río", "region": "Centro", "lat": 19.1000, "lng": -96.1167, "pueblo_magico": False},
+    {"nombre": "Poza Rica", "region": "Norte", "lat": 20.5333, "lng": -97.4500, "pueblo_magico": False},
+    {"nombre": "Tuxpan", "region": "Norte", "lat": 20.9500, "lng": -97.4000, "pueblo_magico": False},
+    {"nombre": "Coscomatepec", "region": "Centro", "lat": 19.0667, "lng": -97.0500, "pueblo_magico": True},
+    {"nombre": "Naolinco", "region": "Centro", "lat": 19.6500, "lng": -96.8667, "pueblo_magico": True},
+    {"nombre": "Zozocolco de Hidalgo", "region": "Norte", "lat": 20.1333, "lng": -97.5833, "pueblo_magico": True},
+    {"nombre": "Los Tuxtlas", "region": "Sur", "lat": 18.4833, "lng": -95.1167, "pueblo_magico": True},
+    {"nombre": "Coatzacoalcos", "region": "Sur", "lat": 18.1333, "lng": -94.4500, "pueblo_magico": False},
+    {"nombre": "Minatitlán", "region": "Sur", "lat": 17.9833, "lng": -94.5500, "pueblo_magico": False},
+    {"nombre": "San Andrés Tuxtla", "region": "Sur", "lat": 18.4500, "lng": -95.2167, "pueblo_magico": False},
+    {"nombre": "Catemaco", "region": "Sur", "lat": 18.4167, "lng": -95.1167, "pueblo_magico": False},
+    {"nombre": "Fortín de las Flores", "region": "Centro", "lat": 18.9000, "lng": -97.0000, "pueblo_magico": False},
+    {"nombre": "Alvarado", "region": "Centro", "lat": 18.7667, "lng": -95.7667, "pueblo_magico": False},
+    {"nombre": "Misantla", "region": "Norte", "lat": 19.9333, "lng": -96.8500, "pueblo_magico": False},
+    {"nombre": "Martínez de la Torre", "region": "Norte", "lat": 20.0667, "lng": -97.0500, "pueblo_magico": False},
+    {"nombre": "Perote", "region": "Centro", "lat": 19.5667, "lng": -97.2500, "pueblo_magico": False},
+    {"nombre": "Huatusco", "region": "Centro", "lat": 19.1500, "lng": -96.9667, "pueblo_magico": False},
+    {"nombre": "Acayucan", "region": "Sur", "lat": 17.9500, "lng": -94.9167, "pueblo_magico": False},
+    {"nombre": "Tierra Blanca", "region": "Centro", "lat": 18.4500, "lng": -96.3500, "pueblo_magico": False},
+    {"nombre": "Tantoyuca", "region": "Norte", "lat": 21.3500, "lng": -98.2333, "pueblo_magico": False},
+    {"nombre": "Álamo Temapache", "region": "Norte", "lat": 20.9167, "lng": -97.6833, "pueblo_magico": False},
+    {"nombre": "Naranjos Amatlán", "region": "Norte", "lat": 21.3500, "lng": -97.6833, "pueblo_magico": False},
+    {"nombre": "Pánuco", "region": "Norte", "lat": 22.0500, "lng": -98.1833, "pueblo_magico": False},
+    {"nombre": "Tecolutla", "region": "Norte", "lat": 20.4833, "lng": -97.0167, "pueblo_magico": False},
+    {"nombre": "Nautla", "region": "Norte", "lat": 20.2167, "lng": -96.7833, "pueblo_magico": False},
+    {"nombre": "Vega de Alatorre", "region": "Norte", "lat": 20.0333, "lng": -96.6500, "pueblo_magico": False},
+    {"nombre": "Cazones de Herrera", "region": "Norte", "lat": 20.7000, "lng": -97.3000, "pueblo_magico": False},
+    {"nombre": "Gutiérrez Zamora", "region": "Norte", "lat": 20.4500, "lng": -97.0833, "pueblo_magico": False},
+    {"nombre": "Espinal", "region": "Norte", "lat": 20.2667, "lng": -97.4000, "pueblo_magico": False},
+    {"nombre": "Coyutla", "region": "Norte", "lat": 20.2500, "lng": -97.6500, "pueblo_magico": False},
+    {"nombre": "Filomeno Mata", "region": "Norte", "lat": 20.2000, "lng": -97.7000, "pueblo_magico": False},
+    {"nombre": "Mecatlán", "region": "Norte", "lat": 20.2167, "lng": -97.6667, "pueblo_magico": False},
+    {"nombre": "Coahuitlán", "region": "Norte", "lat": 20.2833, "lng": -97.7167, "pueblo_magico": False},
+    {"nombre": "Chumatlán", "region": "Norte", "lat": 20.1500, "lng": -97.6833, "pueblo_magico": False},
+    {"nombre": "Coatzintla", "region": "Norte", "lat": 20.4833, "lng": -97.4667, "pueblo_magico": False},
+    {"nombre": "Tihuatlán", "region": "Norte", "lat": 20.7167, "lng": -97.5333, "pueblo_magico": False},
+    {"nombre": "Castillo de Teayo", "region": "Norte", "lat": 20.7500, "lng": -97.6333, "pueblo_magico": False},
+    {"nombre": "Tepetzintla", "region": "Norte", "lat": 20.8500, "lng": -97.8333, "pueblo_magico": False},
+    {"nombre": "Tlapacoyan", "region": "Norte", "lat": 19.9667, "lng": -97.2167, "pueblo_magico": False},
+    {"nombre": "Jalacingo", "region": "Norte", "lat": 19.8167, "lng": -97.3000, "pueblo_magico": False},
+    {"nombre": "Altotonga", "region": "Centro", "lat": 19.7667, "lng": -97.2333, "pueblo_magico": False},
+    {"nombre": "Las Minas", "region": "Centro", "lat": 19.6833, "lng": -97.1333, "pueblo_magico": False},
+    {"nombre": "Villa Aldama", "region": "Centro", "lat": 19.6500, "lng": -97.2333, "pueblo_magico": False},
+    {"nombre": "Atzalan", "region": "Norte", "lat": 19.8000, "lng": -97.2500, "pueblo_magico": False},
+    {"nombre": "Tenochtitlán", "region": "Norte", "lat": 20.2333, "lng": -97.3333, "pueblo_magico": False},
+    {"nombre": "Juchique de Ferrer", "region": "Norte", "lat": 19.8333, "lng": -96.7000, "pueblo_magico": False},
+    {"nombre": "Yecuatla", "region": "Norte", "lat": 19.8667, "lng": -96.7833, "pueblo_magico": False},
+    {"nombre": "Colipa", "region": "Norte", "lat": 19.9167, "lng": -96.7333, "pueblo_magico": False},
+    {"nombre": "Chiconquiaco", "region": "Centro", "lat": 19.7500, "lng": -96.8167, "pueblo_magico": False},
+    {"nombre": "Miahuatlán", "region": "Centro", "lat": 19.7000, "lng": -96.8667, "pueblo_magico": False},
+    {"nombre": "Landero y Coss", "region": "Centro", "lat": 19.7167, "lng": -96.9333, "pueblo_magico": False},
+    {"nombre": "Acatlán", "region": "Centro", "lat": 19.6833, "lng": -96.8500, "pueblo_magico": False},
+    {"nombre": "Tonayán", "region": "Centro", "lat": 19.7167, "lng": -96.7667, "pueblo_magico": False},
+    {"nombre": "Alto Lucero de Gutiérrez Barrios", "region": "Centro", "lat": 19.6167, "lng": -96.7333, "pueblo_magico": False},
+    {"nombre": "Actopan", "region": "Centro", "lat": 19.5000, "lng": -96.6167, "pueblo_magico": False},
+    {"nombre": "Úrsulo Galván", "region": "Centro", "lat": 19.4167, "lng": -96.3667, "pueblo_magico": False},
+    {"nombre": "La Antigua", "region": "Centro", "lat": 19.3333, "lng": -96.3333, "pueblo_magico": False},
+    {"nombre": "Puente Nacional", "region": "Centro", "lat": 19.3333, "lng": -96.4833, "pueblo_magico": False},
+    {"nombre": "Emiliano Zapata", "region": "Centro", "lat": 19.4500, "lng": -96.7667, "pueblo_magico": False},
+    {"nombre": "Apazapan", "region": "Centro", "lat": 19.3333, "lng": -96.7167, "pueblo_magico": False},
+    {"nombre": "Jalcomulco", "region": "Centro", "lat": 19.3333, "lng": -96.7667, "pueblo_magico": False},
+    {"nombre": "Tlaltetela", "region": "Centro", "lat": 19.3167, "lng": -96.9000, "pueblo_magico": False},
+    {"nombre": "Teocelo", "region": "Centro", "lat": 19.3833, "lng": -96.9667, "pueblo_magico": False},
+    {"nombre": "Cosautlán de Carvajal", "region": "Centro", "lat": 19.3500, "lng": -96.9833, "pueblo_magico": False},
+    {"nombre": "Ixhuacán de los Reyes", "region": "Centro", "lat": 19.3500, "lng": -97.1333, "pueblo_magico": False},
+    {"nombre": "Ayahualulco", "region": "Centro", "lat": 19.3333, "lng": -97.1333, "pueblo_magico": False},
+    {"nombre": "Calcahualco", "region": "Centro", "lat": 19.1333, "lng": -97.1333, "pueblo_magico": False},
+    {"nombre": "Alpatláhuac", "region": "Centro", "lat": 19.0833, "lng": -97.1500, "pueblo_magico": False},
+    {"nombre": "La Perla", "region": "Centro", "lat": 18.9500, "lng": -97.1833, "pueblo_magico": False},
+    {"nombre": "Mariano Escobedo", "region": "Centro", "lat": 18.9167, "lng": -97.1500, "pueblo_magico": False},
+    {"nombre": "Ixhuatlancillo", "region": "Centro", "lat": 18.9000, "lng": -97.1500, "pueblo_magico": False},
+    {"nombre": "Rafael Delgado", "region": "Centro", "lat": 18.8167, "lng": -97.0667, "pueblo_magico": False},
+    {"nombre": "Tlilapan", "region": "Centro", "lat": 18.8000, "lng": -97.0833, "pueblo_magico": False},
+    {"nombre": "San Andrés Tenejapan", "region": "Centro", "lat": 18.7833, "lng": -97.1000, "pueblo_magico": False},
+    {"nombre": "Magdalena", "region": "Centro", "lat": 18.8333, "lng": -97.1167, "pueblo_magico": False},
+    {"nombre": "Nogales", "region": "Centro", "lat": 18.8167, "lng": -97.1667, "pueblo_magico": False},
+    {"nombre": "Río Blanco", "region": "Centro", "lat": 18.8333, "lng": -97.1500, "pueblo_magico": False},
+    {"nombre": "Camerino Z. Mendoza", "region": "Centro", "lat": 18.8167, "lng": -97.1333, "pueblo_magico": False},
+    {"nombre": "Huiloapan de Cuauhtémoc", "region": "Centro", "lat": 18.8000, "lng": -97.1833, "pueblo_magico": False},
+    {"nombre": "Aquila", "region": "Centro", "lat": 18.7833, "lng": -97.2333, "pueblo_magico": False},
+    {"nombre": "Maltrata", "region": "Centro", "lat": 18.8167, "lng": -97.2667, "pueblo_magico": False},
+    {"nombre": "Acultzingo", "region": "Centro", "lat": 18.7167, "lng": -97.3167, "pueblo_magico": False},
+    {"nombre": "Soledad Atzompa", "region": "Centro", "lat": 18.7500, "lng": -97.1500, "pueblo_magico": False},
+    {"nombre": "Atlahuilco", "region": "Centro", "lat": 18.7500, "lng": -97.1000, "pueblo_magico": False},
+    {"nombre": "Texhuacán", "region": "Centro", "lat": 18.6333, "lng": -97.0500, "pueblo_magico": False},
+    {"nombre": "Reyes", "region": "Centro", "lat": 18.6500, "lng": -97.0000, "pueblo_magico": False},
+    {"nombre": "Xoxocotla", "region": "Centro", "lat": 18.7000, "lng": -97.0833, "pueblo_magico": False},
+    {"nombre": "Astacinga", "region": "Centro", "lat": 18.6333, "lng": -97.0833, "pueblo_magico": False},
+    {"nombre": "Tehuipango", "region": "Centro", "lat": 18.5167, "lng": -97.0333, "pueblo_magico": False},
+    {"nombre": "Mixtla de Altamirano", "region": "Centro", "lat": 18.6000, "lng": -97.0500, "pueblo_magico": False},
+    {"nombre": "Los Reyes", "region": "Centro", "lat": 18.5833, "lng": -97.0833, "pueblo_magico": False},
+    {"nombre": "Zongolica", "region": "Centro", "lat": 18.6667, "lng": -97.0000, "pueblo_magico": False},
+    {"nombre": "Tequila", "region": "Centro", "lat": 18.7333, "lng": -97.0000, "pueblo_magico": False},
+    {"nombre": "Omealca", "region": "Centro", "lat": 18.7667, "lng": -96.7667, "pueblo_magico": False},
+    {"nombre": "Cuichapa", "region": "Centro", "lat": 18.7833, "lng": -96.8500, "pueblo_magico": False},
+    {"nombre": "Yanga", "region": "Centro", "lat": 18.8333, "lng": -96.8000, "pueblo_magico": False},
+    {"nombre": "Cuitláhuac", "region": "Centro", "lat": 18.7833, "lng": -96.7000, "pueblo_magico": False},
+    {"nombre": "Carrillo Puerto", "region": "Centro", "lat": 18.8667, "lng": -96.8000, "pueblo_magico": False},
+    {"nombre": "Amatlán de los Reyes", "region": "Centro", "lat": 18.8333, "lng": -96.9167, "pueblo_magico": False},
+    {"nombre": "Atoyac", "region": "Centro", "lat": 18.9167, "lng": -96.7833, "pueblo_magico": False},
+    {"nombre": "Paso del Macho", "region": "Centro", "lat": 18.9667, "lng": -96.7167, "pueblo_magico": False},
+    {"nombre": "Camarón de Tejeda", "region": "Centro", "lat": 18.9333, "lng": -96.5500, "pueblo_magico": False},
+    {"nombre": "Manlio Fabio Altamirano", "region": "Centro", "lat": 19.0333, "lng": -96.3333, "pueblo_magico": False},
+    {"nombre": "Cotaxtla", "region": "Centro", "lat": 18.8500, "lng": -96.3833, "pueblo_magico": False},
+    {"nombre": "Medellín de Bravo", "region": "Centro", "lat": 19.0500, "lng": -96.1500, "pueblo_magico": False},
+    {"nombre": "Jamapa", "region": "Centro", "lat": 19.0333, "lng": -96.2333, "pueblo_magico": False},
+    {"nombre": "Soledad de Doblado", "region": "Centro", "lat": 19.0500, "lng": -96.4167, "pueblo_magico": False},
+    {"nombre": "Tepetlán", "region": "Centro", "lat": 19.2500, "lng": -96.8500, "pueblo_magico": False},
+    {"nombre": "Tlacolulan", "region": "Centro", "lat": 19.6667, "lng": -97.0000, "pueblo_magico": False},
+    {"nombre": "Rafael Lucio", "region": "Centro", "lat": 19.5833, "lng": -97.0167, "pueblo_magico": False},
+    {"nombre": "Acajete", "region": "Centro", "lat": 19.5833, "lng": -97.0333, "pueblo_magico": False},
+    {"nombre": "Banderilla", "region": "Centro", "lat": 19.5833, "lng": -96.9333, "pueblo_magico": False},
+    {"nombre": "Jilotepec", "region": "Centro", "lat": 19.6000, "lng": -96.9500, "pueblo_magico": False},
+    {"nombre": "Coacoatzintla", "region": "Centro", "lat": 19.6500, "lng": -96.9333, "pueblo_magico": False},
+    {"nombre": "Tlalnelhuayocan", "region": "Centro", "lat": 19.5667, "lng": -96.9667, "pueblo_magico": False},
+    {"nombre": "San Andrés Tlalnelhuayocan", "region": "Centro", "lat": 19.5667, "lng": -96.9833, "pueblo_magico": False},
+    {"nombre": "Ixhuacán de los Reyes", "region": "Centro", "lat": 19.3500, "lng": -97.1333, "pueblo_magico": False},
+    {"nombre": "Totutla", "region": "Centro", "lat": 19.2167, "lng": -96.9667, "pueblo_magico": False},
+    {"nombre": "Sochiapa", "region": "Centro", "lat": 19.2000, "lng": -96.9500, "pueblo_magico": False},
+    {"nombre": "Comapa", "region": "Centro", "lat": 19.1500, "lng": -96.8667, "pueblo_magico": False},
+    {"nombre": "Zentla", "region": "Centro", "lat": 19.0833, "lng": -96.7667, "pueblo_magico": False},
+    {"nombre": "Chocamán", "region": "Centro", "lat": 19.0167, "lng": -97.0333, "pueblo_magico": False},
+    {"nombre": "Tomatlán", "region": "Centro", "lat": 19.0000, "lng": -97.0833, "pueblo_magico": False},
+    {"nombre": "Tenampa", "region": "Centro", "lat": 19.1333, "lng": -96.8833, "pueblo_magico": False},
+    {"nombre": "Tlalixcoyan", "region": "Centro", "lat": 18.9000, "lng": -96.0833, "pueblo_magico": False},
+    {"nombre": "Ignacio de la Llave", "region": "Centro", "lat": 18.8167, "lng": -96.0000, "pueblo_magico": False},
+    {"nombre": "Acula", "region": "Centro", "lat": 18.7833, "lng": -95.8833, "pueblo_magico": False},
+    {"nombre": "Tlacojalpan", "region": "Sur", "lat": 18.6500, "lng": -95.7000, "pueblo_magico": False},
+    {"nombre": "Ixmatlahuacan", "region": "Sur", "lat": 18.5833, "lng": -95.8167, "pueblo_magico": False},
+    {"nombre": "José Azueta", "region": "Sur", "lat": 18.5667, "lng": -95.9833, "pueblo_magico": False},
+    {"nombre": "Lerdo de Tejada", "region": "Sur", "lat": 18.6333, "lng": -95.5167, "pueblo_magico": False},
+    {"nombre": "Saltabarranca", "region": "Sur", "lat": 18.6000, "lng": -95.6000, "pueblo_magico": False},
+    {"nombre": "Ángel R. Cabada", "region": "Sur", "lat": 18.6000, "lng": -95.4500, "pueblo_magico": False},
+    {"nombre": "Santiago Tuxtla", "region": "Sur", "lat": 18.4667, "lng": -95.3000, "pueblo_magico": False},
+    {"nombre": "Hueyapan de Ocampo", "region": "Sur", "lat": 18.1667, "lng": -95.1500, "pueblo_magico": False},
+    {"nombre": "Mecayapan", "region": "Sur", "lat": 18.2167, "lng": -94.8333, "pueblo_magico": False},
+    {"nombre": "Soteapan", "region": "Sur", "lat": 18.2333, "lng": -94.8667, "pueblo_magico": False},
+    {"nombre": "Pajapan", "region": "Sur", "lat": 18.2667, "lng": -94.7000, "pueblo_magico": False},
+    {"nombre": "Tatahuicapan de Juárez", "region": "Sur", "lat": 18.2667, "lng": -94.7667, "pueblo_magico": False},
+    {"nombre": "Chinameca", "region": "Sur", "lat": 17.9833, "lng": -94.6667, "pueblo_magico": False},
+    {"nombre": "Jáltipan", "region": "Sur", "lat": 17.9667, "lng": -94.7167, "pueblo_magico": False},
+    {"nombre": "Oteapan", "region": "Sur", "lat": 17.9833, "lng": -94.6833, "pueblo_magico": False},
+    {"nombre": "Zaragoza", "region": "Sur", "lat": 17.9500, "lng": -94.7833, "pueblo_magico": False},
+    {"nombre": "Cosoleacaque", "region": "Sur", "lat": 18.0000, "lng": -94.6167, "pueblo_magico": False},
+    {"nombre": "Nanchital de Lázaro Cárdenas del Río", "region": "Sur", "lat": 18.0667, "lng": -94.4167, "pueblo_magico": False},
+    {"nombre": "Ixhuatlán del Sureste", "region": "Sur", "lat": 18.0167, "lng": -94.3833, "pueblo_magico": False},
+    {"nombre": "Moloacán", "region": "Sur", "lat": 17.9833, "lng": -94.3500, "pueblo_magico": False},
+    {"nombre": "Agua Dulce", "region": "Sur", "lat": 18.1500, "lng": -94.1333, "pueblo_magico": False},
+    {"nombre": "Las Choapas", "region": "Sur", "lat": 17.9167, "lng": -94.1000, "pueblo_magico": False},
+    {"nombre": "Uxpanapa", "region": "Sur", "lat": 17.2167, "lng": -94.2167, "pueblo_magico": False},
+    {"nombre": "Jesús Carranza", "region": "Sur", "lat": 17.4333, "lng": -95.0333, "pueblo_magico": False},
+    {"nombre": "Playa Vicente", "region": "Sur", "lat": 17.8333, "lng": -95.8167, "pueblo_magico": False},
+    {"nombre": "Juan Rodríguez Clara", "region": "Sur", "lat": 18.0000, "lng": -95.4000, "pueblo_magico": False},
+    {"nombre": "Isla", "region": "Sur", "lat": 18.0333, "lng": -95.5333, "pueblo_magico": False},
+    {"nombre": "Santiago Sochiapan", "region": "Sur", "lat": 17.9500, "lng": -95.6833, "pueblo_magico": False},
+    {"nombre": "San Juan Evangelista", "region": "Sur", "lat": 17.8833, "lng": -95.1333, "pueblo_magico": False},
+    {"nombre": "Sayula de Alemán", "region": "Sur", "lat": 17.8833, "lng": -94.9500, "pueblo_magico": False},
+    {"nombre": "Oluta", "region": "Sur", "lat": 17.9333, "lng": -94.8833, "pueblo_magico": False},
+    {"nombre": "Texistepec", "region": "Sur", "lat": 17.9000, "lng": -94.8167, "pueblo_magico": False},
+    {"nombre": "Soconusco", "region": "Sur", "lat": 17.9667, "lng": -94.8500, "pueblo_magico": False},
+    {"nombre": "Hidalgotitlán", "region": "Sur", "lat": 17.7667, "lng": -94.6500, "pueblo_magico": False},
+    {"nombre": "Tres Valles", "region": "Centro", "lat": 18.2333, "lng": -96.1333, "pueblo_magico": False},
+    {"nombre": "Carlos A. Carrillo", "region": "Centro", "lat": 18.3667, "lng": -96.0000, "pueblo_magico": False},
+    {"nombre": "Cosamaloapan de Carpio", "region": "Sur", "lat": 18.3667, "lng": -95.8000, "pueblo_magico": False},
+    {"nombre": "Chacaltianguis", "region": "Sur", "lat": 18.3333, "lng": -95.8500, "pueblo_magico": False},
+    {"nombre": "Tuxtilla", "region": "Sur", "lat": 18.3000, "lng": -95.8833, "pueblo_magico": False},
+    {"nombre": "Amatitlán", "region": "Sur", "lat": 18.3833, "lng": -95.5000, "pueblo_magico": False},
+    {"nombre": "Otatitlán", "region": "Sur", "lat": 18.1833, "lng": -96.0333, "pueblo_magico": False},
+    {"nombre": "Tlacotalpan", "region": "Sur", "lat": 18.6167, "lng": -95.6667, "pueblo_magico": True},
+    {"nombre": "Tezonapa", "region": "Centro", "lat": 18.6167, "lng": -96.6833, "pueblo_magico": False},
+    {"nombre": "Zongolica", "region": "Centro", "lat": 18.6667, "lng": -97.0000, "pueblo_magico": False},
+    {"nombre": "Ixtaczoquitlán", "region": "Centro", "lat": 18.8500, "lng": -97.0667, "pueblo_magico": False},
+    {"nombre": "Orizaba", "region": "Centro", "lat": 18.8500, "lng": -97.1000, "pueblo_magico": True},
+    {"nombre": "Atzacan", "region": "Centro", "lat": 18.9500, "lng": -97.0667, "pueblo_magico": False},
+    {"nombre": "Chichimilac", "region": "Centro", "lat": 18.9667, "lng": -97.1000, "pueblo_magico": False},
+    {"nombre": "Naranjal", "region": "Centro", "lat": 18.9833, "lng": -97.0833, "pueblo_magico": False},
+    {"nombre": "Huatusco", "region": "Centro", "lat": 19.1500, "lng": -96.9667, "pueblo_magico": False},
+    {"nombre": "Sochiapa", "region": "Centro", "lat": 19.2000, "lng": -96.9500, "pueblo_magico": False},
+    {"nombre": "Coscomatepec", "region": "Centro", "lat": 19.0667, "lng": -97.0500, "pueblo_magico": True},
+    {"nombre": "Alpatláhuac", "region": "Centro", "lat": 19.0833, "lng": -97.1500, "pueblo_magico": False},
+    {"nombre": "Ixhuatlán del Café", "region": "Centro", "lat": 19.0667, "lng": -97.0000, "pueblo_magico": False},
+    {"nombre": "Tepatlaxco", "region": "Centro", "lat": 19.0500, "lng": -97.0167, "pueblo_magico": False},
+    {"nombre": "Teocelo", "region": "Centro", "lat": 19.3833, "lng": -96.9667, "pueblo_magico": False},
+    {"nombre": "Xico", "region": "Centro", "lat": 19.4180, "lng": -97.0080, "pueblo_magico": True},
+    {"nombre": "Coatepec", "region": "Centro", "lat": 19.4524, "lng": -96.9614, "pueblo_magico": True},
+    {"nombre": "Xalapa", "region": "Centro", "lat": 19.5438, "lng": -96.9102, "pueblo_magico": False},
+    {"nombre": "Juchique de Ferrer", "region": "Norte", "lat": 19.8333, "lng": -96.7000, "pueblo_magico": False},
+    {"nombre": "Misantla", "region": "Norte", "lat": 19.9333, "lng": -96.8500, "pueblo_magico": False},
+    {"nombre": "Tenochtitlán", "region": "Norte", "lat": 20.2333, "lng": -97.3333, "pueblo_magico": False},
+    {"nombre": "Papantla", "region": "Norte", "lat": 20.4547, "lng": -97.3222, "pueblo_magico": True},
+    {"nombre": "Poza Rica de Hidalgo", "region": "Norte", "lat": 20.5333, "lng": -97.4500, "pueblo_magico": False},
+    {"nombre": "Tuxpan de Rodríguez Cano", "region": "Norte", "lat": 20.9500, "lng": -97.4000, "pueblo_magico": False},
+    {"nombre": "Tamiahua", "region": "Norte", "lat": 21.2833, "lng": -97.4500, "pueblo_magico": False},
+    {"nombre": "Ozuluama de Mascareñas", "region": "Norte", "lat": 21.6667, "lng": -97.8500, "pueblo_magico": False},
+    {"nombre": "Pánuco", "region": "Norte", "lat": 22.0500, "lng": -98.1833, "pueblo_magico": False},
+    {"nombre": "El Higo", "region": "Norte", "lat": 21.7667, "lng": -98.3833, "pueblo_magico": False},
+    {"nombre": "Tempoal", "region": "Norte", "lat": 21.5167, "lng": -98.3833, "pueblo_magico": False},
+    {"nombre": "Platón Sánchez", "region": "Norte", "lat": 21.2833, "lng": -98.3667, "pueblo_magico": False},
+    {"nombre": "Chalma", "region": "Norte", "lat": 21.2167, "lng": -98.3000, "pueblo_magico": False},
+    {"nombre": "Chicontepec", "region": "Norte", "lat": 21.0000, "lng": -98.1667, "pueblo_magico": False},
+    {"nombre": "Ixhuatlán de Madero", "region": "Norte", "lat": 20.6833, "lng": -98.0167, "pueblo_magico": False},
+    {"nombre": "Benito Juárez", "region": "Norte", "lat": 20.8167, "lng": -98.0833, "pueblo_magico": False},
+    {"nombre": "Zontecomatlán de López y Fuentes", "region": "Norte", "lat": 20.7333, "lng": -98.3500, "pueblo_magico": False},
+    {"nombre": "Tlachichilco", "region": "Norte", "lat": 20.6333, "lng": -98.1833, "pueblo_magico": False},
+    {"nombre": "Texcatepec", "region": "Norte", "lat": 20.5833, "lng": -98.3500, "pueblo_magico": False},
+    {"nombre": "Ilamatlán", "region": "Norte", "lat": 20.7833, "lng": -98.4500, "pueblo_magico": False},
+    {"nombre": "Huayacocotla", "region": "Norte", "lat": 20.5333, "lng": -98.4833, "pueblo_magico": False},
+    {"nombre": "Zacualpan", "region": "Norte", "lat": 20.4333, "lng": -98.3500, "pueblo_magico": False},
+    {"nombre": "Naolinco", "region": "Centro", "lat": 19.6500, "lng": -96.8667, "pueblo_magico": True},
+    {"nombre": "Zozocolco de Hidalgo", "region": "Norte", "lat": 20.1333, "lng": -97.5833, "pueblo_magico": True},
+    {"nombre": "Los Tuxtlas", "region": "Sur", "lat": 18.4833, "lng": -95.1167, "pueblo_magico": True},
+]
+
+async def seed_municipios():
+    """Seed the 232 municipalities of Veracruz"""
+    existing = await db.municipios.count_documents({})
+    if existing > 0:
+        logger.info(f"Municipios already seeded ({existing} found)")
+        return
     
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    client_name: str
-    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    # Remove duplicates based on nombre
+    seen = set()
+    unique_municipios = []
+    for m in MUNICIPIOS_VERACRUZ:
+        if m["nombre"] not in seen:
+            seen.add(m["nombre"])
+            unique_municipios.append(m)
+    
+    municipios_to_insert = []
+    for m in unique_municipios:
+        municipio = {
+            "id": str(uuid.uuid4()),
+            "nombre": m["nombre"],
+            "slug": slugify(m["nombre"]),
+            "region": m["region"],
+            "descripcion": None,
+            "historia": None,
+            "que_hacer": [],
+            "como_llegar": None,
+            "clima": None,
+            "altitud": None,
+            "tags": ["Pueblo Mágico"] if m.get("pueblo_magico") else [],
+            "foto_portada_url": None,
+            "fotos": [],
+            "videos": [],
+            "pueblo_magico": m.get("pueblo_magico", False),
+            "encargado_id": None,
+            "estado": "sin_configurar",
+            "lat": m["lat"],
+            "lng": m["lng"],
+            "visitas_total": 0,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }
+        municipios_to_insert.append(municipio)
+    
+    if municipios_to_insert:
+        await db.municipios.insert_many(municipios_to_insert)
+        logger.info(f"Seeded {len(municipios_to_insert)} municipios")
 
-class StatusCheckCreate(BaseModel):
-    client_name: str
+async def seed_admin():
+    """Seed the super admin user"""
+    admin_email = os.environ.get("ADMIN_EMAIL", "superadmin@veracruzcontigo.gob.mx")
+    admin_password = os.environ.get("ADMIN_PASSWORD", "VeracruzAdmin2024!")
+    
+    existing = await db.usuarios.find_one({"email": admin_email.lower()})
+    if existing:
+        # Update password if changed
+        if not verify_password(admin_password, existing.get("password_hash", "")):
+            await db.usuarios.update_one(
+                {"email": admin_email.lower()},
+                {"$set": {"password_hash": hash_password(admin_password)}}
+            )
+            logger.info("Admin password updated")
+        return
+    
+    admin = {
+        "user_id": f"user_{uuid.uuid4().hex[:12]}",
+        "email": admin_email.lower(),
+        "password_hash": hash_password(admin_password),
+        "nombre": "Super Administrador",
+        "foto_url": None,
+        "rol": "superadmin",
+        "municipio_id": None,
+        "activo": True,
+        "fecha_registro": datetime.now(timezone.utc).isoformat(),
+        "ultimo_acceso": None
+    }
+    await db.usuarios.insert_one(admin)
+    logger.info(f"Admin user created: {admin_email}")
 
-# Add your routes to the router instead of directly to app
+async def seed_sample_events():
+    """Seed sample events"""
+    existing = await db.eventos.count_documents({})
+    if existing > 0:
+        return
+    
+    # Get some municipio IDs
+    veracruz = await db.municipios.find_one({"nombre": "Veracruz"}, {"_id": 0, "id": 1})
+    papantla = await db.municipios.find_one({"nombre": "Papantla"}, {"_id": 0, "id": 1})
+    xalapa = await db.municipios.find_one({"nombre": "Xalapa"}, {"_id": 0, "id": 1})
+    tlacotalpan = await db.municipios.find_one({"nombre": "Tlacotalpan"}, {"_id": 0, "id": 1})
+    coatepec = await db.municipios.find_one({"nombre": "Coatepec"}, {"_id": 0, "id": 1})
+    
+    events = [
+        {
+            "id": str(uuid.uuid4()),
+            "nombre": "Carnaval de Veracruz 2026",
+            "municipio_id": veracruz["id"] if veracruz else "",
+            "fecha_inicio": "2026-02-14",
+            "fecha_fin": "2026-02-22",
+            "descripcion": "El carnaval más alegre del mundo. Desfiles, comparsas, música y alegría durante 9 días.",
+            "foto_url": "https://images.unsplash.com/photo-1533174072545-7a4b6ad7a6c3?w=800",
+            "tipo": "Cultural",
+            "lugar": "Malecón y Centro Histórico",
+            "link_externo": None,
+            "publicado": True,
+            "created_by": None,
+            "created_at": datetime.now(timezone.utc).isoformat()
+        },
+        {
+            "id": str(uuid.uuid4()),
+            "nombre": "Cumbre Tajín 2026",
+            "municipio_id": papantla["id"] if papantla else "",
+            "fecha_inicio": "2026-03-15",
+            "fecha_fin": "2026-03-22",
+            "descripcion": "Festival de identidad que celebra la cultura totonaca con música, arte y ceremonias ancestrales.",
+            "foto_url": "https://images.unsplash.com/photo-1518638150340-f706e86654de?w=800",
+            "tipo": "Cultural",
+            "lugar": "Parque Takilhsukut",
+            "link_externo": None,
+            "publicado": True,
+            "created_by": None,
+            "created_at": datetime.now(timezone.utc).isoformat()
+        },
+        {
+            "id": str(uuid.uuid4()),
+            "nombre": "Festival Internacional del Jazz",
+            "municipio_id": xalapa["id"] if xalapa else "",
+            "fecha_inicio": "2026-10-10",
+            "fecha_fin": "2026-10-15",
+            "descripcion": "El encuentro jazzístico más importante de México con artistas nacionales e internacionales.",
+            "foto_url": "https://images.unsplash.com/photo-1415201364774-f6f0bb35f28f?w=800",
+            "tipo": "Musical",
+            "lugar": "Teatro del Estado y diversos foros",
+            "link_externo": None,
+            "publicado": True,
+            "created_by": None,
+            "created_at": datetime.now(timezone.utc).isoformat()
+        },
+        {
+            "id": str(uuid.uuid4()),
+            "nombre": "Feria de la Candelaria",
+            "municipio_id": tlacotalpan["id"] if tlacotalpan else "",
+            "fecha_inicio": "2026-01-31",
+            "fecha_fin": "2026-02-09",
+            "descripcion": "Fiesta tradicional con el emblemático paseo de la Virgen por el río Papaloapan.",
+            "foto_url": "https://images.unsplash.com/photo-1568702846914-96b305d2aaeb?w=800",
+            "tipo": "Religioso",
+            "lugar": "Centro Histórico",
+            "link_externo": None,
+            "publicado": True,
+            "created_by": None,
+            "created_at": datetime.now(timezone.utc).isoformat()
+        },
+        {
+            "id": str(uuid.uuid4()),
+            "nombre": "Festival del Café",
+            "municipio_id": coatepec["id"] if coatepec else "",
+            "fecha_inicio": "2026-11-01",
+            "fecha_fin": "2026-11-15",
+            "descripcion": "Celebración del aromático café veracruzano con catas, tours a fincas y gastronomía local.",
+            "foto_url": "https://images.unsplash.com/photo-1447933601403-0c6688de566e?w=800",
+            "tipo": "Gastronómico",
+            "lugar": "Fincas cafetaleras y centro",
+            "link_externo": None,
+            "publicado": True,
+            "created_by": None,
+            "created_at": datetime.now(timezone.utc).isoformat()
+        }
+    ]
+    
+    await db.eventos.insert_many(events)
+    logger.info(f"Seeded {len(events)} sample events")
+
+async def seed_sample_prestadores():
+    """Seed sample service providers"""
+    existing = await db.prestadores.count_documents({})
+    if existing > 0:
+        return
+    
+    veracruz = await db.municipios.find_one({"nombre": "Veracruz"}, {"_id": 0, "id": 1})
+    xalapa = await db.municipios.find_one({"nombre": "Xalapa"}, {"_id": 0, "id": 1})
+    
+    prestadores = [
+        {
+            "id": str(uuid.uuid4()),
+            "nombre": "Hotel Gran Diligencias",
+            "tipo": "HOSPEDAJE",
+            "subtipo": "Hotel",
+            "municipio_id": veracruz["id"] if veracruz else "",
+            "descripcion": "Hotel histórico de 5 estrellas frente al malecón con vistas espectaculares al Golfo de México.",
+            "foto_url": "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=800",
+            "telefono": "229-931-2233",
+            "whatsapp": "522299312233",
+            "horarios": "24 horas",
+            "direccion": "Independencia 1115, Centro",
+            "calificacion_promedio": 4.8,
+            "total_resenas": 156,
+            "verificado": True,
+            "activo": True,
+            "lat": 19.1908,
+            "lng": -96.1331,
+            "created_at": datetime.now(timezone.utc).isoformat()
+        },
+        {
+            "id": str(uuid.uuid4()),
+            "nombre": "La Parroquia de Veracruz",
+            "tipo": "GASTRONOMÍA",
+            "subtipo": "Restaurante",
+            "municipio_id": veracruz["id"] if veracruz else "",
+            "descripcion": "El café más emblemático de Veracruz. Tradición desde 1808 con el famoso café lechero.",
+            "foto_url": "https://images.unsplash.com/photo-1554118811-1e0d58224f24?w=800",
+            "telefono": "229-932-2584",
+            "whatsapp": "522299322584",
+            "horarios": "7:00 AM - 12:00 AM",
+            "direccion": "Gómez Farías 34, Centro",
+            "calificacion_promedio": 4.9,
+            "total_resenas": 342,
+            "verificado": True,
+            "activo": True,
+            "lat": 19.1925,
+            "lng": -96.1335,
+            "created_at": datetime.now(timezone.utc).isoformat()
+        },
+        {
+            "id": str(uuid.uuid4()),
+            "nombre": "Tours Veracruz Ancestral",
+            "tipo": "TURISMO",
+            "subtipo": "Tour operador",
+            "municipio_id": veracruz["id"] if veracruz else "",
+            "descripcion": "Tours a zonas arqueológicas, ecoturismo y experiencias culturales auténticas.",
+            "foto_url": "https://images.unsplash.com/photo-1530789253388-582c481c54b0?w=800",
+            "telefono": "229-123-4567",
+            "whatsapp": "522291234567",
+            "horarios": "8:00 AM - 6:00 PM",
+            "direccion": "Malecón s/n",
+            "calificacion_promedio": 4.7,
+            "total_resenas": 89,
+            "verificado": True,
+            "activo": True,
+            "lat": 19.1890,
+            "lng": -96.1340,
+            "created_at": datetime.now(timezone.utc).isoformat()
+        },
+        {
+            "id": str(uuid.uuid4()),
+            "nombre": "Café Colón",
+            "tipo": "GASTRONOMÍA",
+            "subtipo": "Cafetería",
+            "municipio_id": xalapa["id"] if xalapa else "",
+            "descripcion": "El mejor café de altura de Xalapa. Granos orgánicos de la región.",
+            "foto_url": "https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=800",
+            "telefono": "228-817-8390",
+            "whatsapp": "522288178390",
+            "horarios": "7:00 AM - 10:00 PM",
+            "direccion": "Primo Verdad 15, Centro",
+            "calificacion_promedio": 4.8,
+            "total_resenas": 215,
+            "verificado": True,
+            "activo": True,
+            "lat": 19.5295,
+            "lng": -96.9225,
+            "created_at": datetime.now(timezone.utc).isoformat()
+        }
+    ]
+    
+    await db.prestadores.insert_many(prestadores)
+    logger.info(f"Seeded {len(prestadores)} sample prestadores")
+
+# ============== AUTH ENDPOINTS ==============
+
+@api_router.post("/auth/register")
+async def register(user_data: UserCreate, response: Response):
+    email = user_data.email.lower().strip()
+    existing = await db.usuarios.find_one({"email": email})
+    if existing:
+        raise HTTPException(status_code=400, detail="El email ya está registrado")
+    
+    user_id = f"user_{uuid.uuid4().hex[:12]}"
+    user = {
+        "user_id": user_id,
+        "email": email,
+        "password_hash": hash_password(user_data.password),
+        "nombre": user_data.nombre,
+        "foto_url": None,
+        "rol": user_data.rol if user_data.rol in ["encargado", "prestador"] else "turista",
+        "municipio_id": user_data.municipio_id,
+        "activo": True,
+        "fecha_registro": datetime.now(timezone.utc).isoformat(),
+        "ultimo_acceso": None
+    }
+    await db.usuarios.insert_one(user)
+    
+    access_token = create_access_token(user_id, email, user["rol"])
+    refresh_token = create_refresh_token(user_id)
+    
+    response.set_cookie(key="access_token", value=access_token, httponly=True, secure=False, samesite="lax", max_age=86400, path="/")
+    response.set_cookie(key="refresh_token", value=refresh_token, httponly=True, secure=False, samesite="lax", max_age=604800, path="/")
+    
+    user.pop("password_hash")
+    user.pop("_id", None)
+    return user
+
+@api_router.post("/auth/login")
+async def login(credentials: UserLogin, response: Response):
+    email = credentials.email.lower().strip()
+    user = await db.usuarios.find_one({"email": email}, {"_id": 0})
+    
+    if not user or not verify_password(credentials.password, user.get("password_hash", "")):
+        raise HTTPException(status_code=401, detail="Credenciales inválidas")
+    
+    if not user.get("activo", True):
+        raise HTTPException(status_code=403, detail="Cuenta desactivada")
+    
+    # Update last access
+    await db.usuarios.update_one(
+        {"email": email},
+        {"$set": {"ultimo_acceso": datetime.now(timezone.utc).isoformat()}}
+    )
+    
+    access_token = create_access_token(user["user_id"], email, user["rol"])
+    refresh_token = create_refresh_token(user["user_id"])
+    
+    response.set_cookie(key="access_token", value=access_token, httponly=True, secure=False, samesite="lax", max_age=86400, path="/")
+    response.set_cookie(key="refresh_token", value=refresh_token, httponly=True, secure=False, samesite="lax", max_age=604800, path="/")
+    
+    user.pop("password_hash", None)
+    return user
+
+@api_router.post("/auth/logout")
+async def logout(response: Response):
+    response.delete_cookie("access_token", path="/")
+    response.delete_cookie("refresh_token", path="/")
+    return {"message": "Sesión cerrada"}
+
+@api_router.get("/auth/me")
+async def get_me(request: Request):
+    user = await get_current_user(request)
+    return user
+
+@api_router.post("/auth/session")
+async def process_session(request: Request, response: Response):
+    """Process Emergent OAuth session_id and create local session"""
+    body = await request.json()
+    session_id = body.get("session_id")
+    
+    if not session_id:
+        raise HTTPException(status_code=400, detail="session_id requerido")
+    
+    # Exchange session_id for user data from Emergent Auth
+    try:
+        auth_response = requests.get(
+            "https://demobackend.emergentagent.com/auth/v1/env/oauth/session-data",
+            headers={"X-Session-ID": session_id},
+            timeout=10
+        )
+        auth_response.raise_for_status()
+        oauth_data = auth_response.json()
+    except Exception as e:
+        logger.error(f"OAuth session exchange failed: {e}")
+        raise HTTPException(status_code=401, detail="Sesión de OAuth inválida")
+    
+    email = oauth_data.get("email", "").lower()
+    name = oauth_data.get("name", "Turista")
+    picture = oauth_data.get("picture", "")
+    
+    # Find or create user
+    user = await db.usuarios.find_one({"email": email}, {"_id": 0})
+    
+    if not user:
+        user_id = f"user_{uuid.uuid4().hex[:12]}"
+        user = {
+            "user_id": user_id,
+            "email": email,
+            "password_hash": None,
+            "nombre": name,
+            "foto_url": picture,
+            "rol": "turista",
+            "municipio_id": None,
+            "activo": True,
+            "fecha_registro": datetime.now(timezone.utc).isoformat(),
+            "ultimo_acceso": datetime.now(timezone.utc).isoformat()
+        }
+        await db.usuarios.insert_one(user)
+    else:
+        user_id = user["user_id"]
+        await db.usuarios.update_one(
+            {"email": email},
+            {"$set": {
+                "nombre": name,
+                "foto_url": picture,
+                "ultimo_acceso": datetime.now(timezone.utc).isoformat()
+            }}
+        )
+        user["nombre"] = name
+        user["foto_url"] = picture
+    
+    access_token = create_access_token(user_id, email, user["rol"])
+    refresh_token = create_refresh_token(user_id)
+    
+    response.set_cookie(key="access_token", value=access_token, httponly=True, secure=False, samesite="lax", max_age=86400, path="/")
+    response.set_cookie(key="refresh_token", value=refresh_token, httponly=True, secure=False, samesite="lax", max_age=604800, path="/")
+    
+    user.pop("password_hash", None)
+    user.pop("_id", None)
+    return user
+
+# ============== MUNICIPIOS ENDPOINTS ==============
+
+@api_router.get("/municipios")
+async def get_municipios(
+    region: Optional[str] = None,
+    pueblo_magico: Optional[bool] = None,
+    estado: Optional[str] = None,
+    search: Optional[str] = None,
+    limit: int = 100,
+    skip: int = 0
+):
+    query = {}
+    if region:
+        query["region"] = region
+    if pueblo_magico is not None:
+        query["pueblo_magico"] = pueblo_magico
+    if estado:
+        query["estado"] = estado
+    if search:
+        query["$or"] = [
+            {"nombre": {"$regex": search, "$options": "i"}},
+            {"tags": {"$regex": search, "$options": "i"}}
+        ]
+    
+    municipios = await db.municipios.find(query, {"_id": 0}).skip(skip).limit(limit).to_list(limit)
+    total = await db.municipios.count_documents(query)
+    
+    return {"municipios": municipios, "total": total}
+
+@api_router.get("/municipios/{slug}")
+async def get_municipio(slug: str, request: Request):
+    municipio = await db.municipios.find_one({"slug": slug}, {"_id": 0})
+    if not municipio:
+        raise HTTPException(status_code=404, detail="Municipio no encontrado")
+    
+    # Increment visit counter
+    await db.municipios.update_one({"slug": slug}, {"$inc": {"visitas_total": 1}})
+    
+    return municipio
+
+@api_router.put("/municipios/{slug}")
+async def update_municipio(slug: str, data: MunicipioUpdate, request: Request):
+    user = await get_current_user(request)
+    municipio = await db.municipios.find_one({"slug": slug}, {"_id": 0})
+    
+    if not municipio:
+        raise HTTPException(status_code=404, detail="Municipio no encontrado")
+    
+    # Check permissions
+    if user["rol"] == "encargado" and municipio.get("encargado_id") != user["user_id"]:
+        raise HTTPException(status_code=403, detail="No tienes permiso para editar este municipio")
+    elif user["rol"] not in ["superadmin", "encargado"]:
+        raise HTTPException(status_code=403, detail="No tienes permiso para esta acción")
+    
+    update_data = {k: v for k, v in data.model_dump().items() if v is not None}
+    update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
+    
+    await db.municipios.update_one({"slug": slug}, {"$set": update_data})
+    
+    return await db.municipios.find_one({"slug": slug}, {"_id": 0})
+
+# ============== PRESTADORES ENDPOINTS ==============
+
+@api_router.get("/prestadores")
+async def get_prestadores(
+    tipo: Optional[str] = None,
+    municipio_id: Optional[str] = None,
+    verificado: Optional[bool] = None,
+    search: Optional[str] = None,
+    limit: int = 50,
+    skip: int = 0
+):
+    query = {"activo": True}
+    if tipo:
+        query["tipo"] = tipo
+    if municipio_id:
+        query["municipio_id"] = municipio_id
+    if verificado is not None:
+        query["verificado"] = verificado
+    if search:
+        query["$or"] = [
+            {"nombre": {"$regex": search, "$options": "i"}},
+            {"descripcion": {"$regex": search, "$options": "i"}}
+        ]
+    
+    prestadores = await db.prestadores.find(query, {"_id": 0}).skip(skip).limit(limit).to_list(limit)
+    total = await db.prestadores.count_documents(query)
+    
+    return {"prestadores": prestadores, "total": total}
+
+@api_router.get("/prestadores/{prestador_id}")
+async def get_prestador(prestador_id: str):
+    prestador = await db.prestadores.find_one({"id": prestador_id}, {"_id": 0})
+    if not prestador:
+        raise HTTPException(status_code=404, detail="Prestador no encontrado")
+    return prestador
+
+@api_router.post("/prestadores")
+async def create_prestador(data: PrestadorCreate, request: Request):
+    user = await get_current_user(request)
+    
+    prestador = {
+        "id": str(uuid.uuid4()),
+        **data.model_dump(),
+        "calificacion_promedio": 0.0,
+        "total_resenas": 0,
+        "verificado": user["rol"] == "superadmin",
+        "activo": True,
+        "propuesto_por_id": user["user_id"] if user["rol"] == "encargado" else None,
+        "aprobado_por_id": user["user_id"] if user["rol"] == "superadmin" else None,
+        "user_id": None,
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    
+    await db.prestadores.insert_one(prestador)
+    prestador.pop("_id", None)
+    return prestador
+
+@api_router.put("/prestadores/{prestador_id}")
+async def update_prestador(prestador_id: str, request: Request):
+    user = await get_current_user(request)
+    body = await request.json()
+    
+    prestador = await db.prestadores.find_one({"id": prestador_id}, {"_id": 0})
+    if not prestador:
+        raise HTTPException(status_code=404, detail="Prestador no encontrado")
+    
+    # Check permissions
+    if user["rol"] == "prestador" and prestador.get("user_id") != user["user_id"]:
+        raise HTTPException(status_code=403, detail="No tienes permiso")
+    elif user["rol"] not in ["superadmin", "encargado", "prestador"]:
+        raise HTTPException(status_code=403, detail="No tienes permiso")
+    
+    allowed_fields = ["nombre", "descripcion", "foto_url", "telefono", "whatsapp", "horarios", "direccion"]
+    if user["rol"] == "superadmin":
+        allowed_fields.extend(["verificado", "activo", "tipo", "subtipo"])
+    
+    update_data = {k: v for k, v in body.items() if k in allowed_fields}
+    update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
+    
+    await db.prestadores.update_one({"id": prestador_id}, {"$set": update_data})
+    return await db.prestadores.find_one({"id": prestador_id}, {"_id": 0})
+
+@api_router.post("/prestadores/{prestador_id}/verificar")
+async def verificar_prestador(prestador_id: str, request: Request):
+    user = await get_current_user(request)
+    if user["rol"] != "superadmin":
+        raise HTTPException(status_code=403, detail="Solo el Super Admin puede verificar")
+    
+    await db.prestadores.update_one(
+        {"id": prestador_id},
+        {"$set": {"verificado": True, "aprobado_por_id": user["user_id"]}}
+    )
+    return {"message": "Prestador verificado"}
+
+# ============== EVENTOS ENDPOINTS ==============
+
+@api_router.get("/eventos")
+async def get_eventos(
+    municipio_id: Optional[str] = None,
+    tipo: Optional[str] = None,
+    publicado: Optional[bool] = None,
+    desde: Optional[str] = None,
+    limit: int = 50,
+    skip: int = 0
+):
+    query = {}
+    if municipio_id:
+        query["municipio_id"] = municipio_id
+    if tipo:
+        query["tipo"] = tipo
+    if publicado is not None:
+        query["publicado"] = publicado
+    if desde:
+        query["fecha_inicio"] = {"$gte": desde}
+    
+    eventos = await db.eventos.find(query, {"_id": 0}).sort("fecha_inicio", 1).skip(skip).limit(limit).to_list(limit)
+    total = await db.eventos.count_documents(query)
+    
+    return {"eventos": eventos, "total": total}
+
+@api_router.get("/eventos/{evento_id}")
+async def get_evento(evento_id: str):
+    evento = await db.eventos.find_one({"id": evento_id}, {"_id": 0})
+    if not evento:
+        raise HTTPException(status_code=404, detail="Evento no encontrado")
+    return evento
+
+@api_router.post("/eventos")
+async def create_evento(data: EventoCreate, request: Request):
+    user = await get_current_user(request)
+    if user["rol"] not in ["superadmin", "encargado"]:
+        raise HTTPException(status_code=403, detail="No tienes permiso")
+    
+    evento = {
+        "id": str(uuid.uuid4()),
+        **data.model_dump(),
+        "created_by": user["user_id"],
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    
+    await db.eventos.insert_one(evento)
+    evento.pop("_id", None)
+    return evento
+
+@api_router.put("/eventos/{evento_id}")
+async def update_evento(evento_id: str, request: Request):
+    user = await get_current_user(request)
+    body = await request.json()
+    
+    evento = await db.eventos.find_one({"id": evento_id}, {"_id": 0})
+    if not evento:
+        raise HTTPException(status_code=404, detail="Evento no encontrado")
+    
+    if user["rol"] == "encargado" and evento.get("created_by") != user["user_id"]:
+        raise HTTPException(status_code=403, detail="No tienes permiso")
+    elif user["rol"] not in ["superadmin", "encargado"]:
+        raise HTTPException(status_code=403, detail="No tienes permiso")
+    
+    allowed_fields = ["nombre", "descripcion", "foto_url", "fecha_inicio", "fecha_fin", "tipo", "lugar", "link_externo", "publicado"]
+    update_data = {k: v for k, v in body.items() if k in allowed_fields}
+    
+    await db.eventos.update_one({"id": evento_id}, {"$set": update_data})
+    return await db.eventos.find_one({"id": evento_id}, {"_id": 0})
+
+@api_router.delete("/eventos/{evento_id}")
+async def delete_evento(evento_id: str, request: Request):
+    user = await get_current_user(request)
+    if user["rol"] not in ["superadmin", "encargado"]:
+        raise HTTPException(status_code=403, detail="No tienes permiso")
+    
+    await db.eventos.delete_one({"id": evento_id})
+    return {"message": "Evento eliminado"}
+
+# ============== ALERTAS ENDPOINTS ==============
+
+@api_router.get("/alertas")
+async def get_alertas(activa: Optional[bool] = True):
+    query = {}
+    if activa is not None:
+        query["activa"] = activa
+    alertas = await db.alertas.find(query, {"_id": 0}).to_list(100)
+    return alertas
+
+@api_router.post("/alertas")
+async def create_alerta(data: AlertaCreate, request: Request):
+    user = await get_current_user(request)
+    if user["rol"] != "superadmin":
+        raise HTTPException(status_code=403, detail="Solo el Super Admin puede crear alertas")
+    
+    alerta = {
+        "id": str(uuid.uuid4()),
+        **data.model_dump(),
+        "activa": True,
+        "fecha_inicio": datetime.now(timezone.utc).isoformat(),
+        "creada_por": user["user_id"],
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    
+    await db.alertas.insert_one(alerta)
+    alerta.pop("_id", None)
+    return alerta
+
+@api_router.put("/alertas/{alerta_id}")
+async def update_alerta(alerta_id: str, request: Request):
+    user = await get_current_user(request)
+    if user["rol"] != "superadmin":
+        raise HTTPException(status_code=403, detail="Solo el Super Admin puede modificar alertas")
+    
+    body = await request.json()
+    allowed_fields = ["titulo", "descripcion", "tipo", "municipios_afectados", "activa", "fecha_fin"]
+    update_data = {k: v for k, v in body.items() if k in allowed_fields}
+    
+    await db.alertas.update_one({"id": alerta_id}, {"$set": update_data})
+    return await db.alertas.find_one({"id": alerta_id}, {"_id": 0})
+
+# ============== EMERGENCIAS ENDPOINTS ==============
+
+@api_router.get("/emergencias")
+async def get_emergencias(estado: Optional[str] = None, request: Request = None):
+    user = await get_current_user(request)
+    if user["rol"] not in ["superadmin", "encargado"]:
+        raise HTTPException(status_code=403, detail="No tienes permiso")
+    
+    query = {}
+    if estado:
+        query["estado"] = estado
+    
+    emergencias = await db.emergencias.find(query, {"_id": 0}).sort("timestamp", -1).to_list(100)
+    return emergencias
+
+@api_router.post("/emergencias")
+async def create_emergencia(data: EmergenciaCreate, request: Request):
+    user = await get_current_user(request)
+    
+    emergencia = {
+        "id": str(uuid.uuid4()),
+        "user_id": user["user_id"],
+        "nombre_turista": user["nombre"],
+        "email_turista": user["email"],
+        "lat": data.lat,
+        "lng": data.lng,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "estado": "activa",
+        "resuelta_por": None,
+        "notas_resolucion": None
+    }
+    
+    await db.emergencias.insert_one(emergencia)
+    emergencia.pop("_id", None)
+    
+    # Log for email notification (MOCKED)
+    logger.info(f"[MOCKED EMAIL] Emergencia registrada: {user['nombre']} en ({data.lat}, {data.lng})")
+    
+    return emergencia
+
+@api_router.put("/emergencias/{emergencia_id}/resolver")
+async def resolver_emergencia(emergencia_id: str, request: Request):
+    user = await get_current_user(request)
+    if user["rol"] not in ["superadmin", "encargado"]:
+        raise HTTPException(status_code=403, detail="No tienes permiso")
+    
+    body = await request.json()
+    notas = body.get("notas", "")
+    
+    await db.emergencias.update_one(
+        {"id": emergencia_id},
+        {"$set": {
+            "estado": "resuelta",
+            "resuelta_por": user["user_id"],
+            "notas_resolucion": notas
+        }}
+    )
+    return {"message": "Emergencia resuelta"}
+
+# ============== RESENAS ENDPOINTS ==============
+
+@api_router.get("/resenas")
+async def get_resenas(prestador_id: str):
+    resenas = await db.resenas.find({"prestador_id": prestador_id}, {"_id": 0}).to_list(100)
+    return resenas
+
+@api_router.post("/resenas")
+async def create_resena(data: ResenaCreate, request: Request):
+    user = await get_current_user(request)
+    if user["rol"] != "turista":
+        raise HTTPException(status_code=403, detail="Solo turistas pueden reseñar")
+    
+    # Check if already reviewed
+    existing = await db.resenas.find_one({
+        "turista_id": user["user_id"],
+        "prestador_id": data.prestador_id
+    })
+    if existing:
+        raise HTTPException(status_code=400, detail="Ya has reseñado este prestador")
+    
+    resena = {
+        "id": str(uuid.uuid4()),
+        "turista_id": user["user_id"],
+        "prestador_id": data.prestador_id,
+        "calificacion": min(5, max(1, data.calificacion)),
+        "texto": data.texto[:300] if data.texto else None,
+        "fecha": datetime.now(timezone.utc).isoformat(),
+        "editada": False
+    }
+    
+    await db.resenas.insert_one(resena)
+    
+    # Update prestador rating
+    all_resenas = await db.resenas.find({"prestador_id": data.prestador_id}, {"calificacion": 1}).to_list(1000)
+    avg = sum(r["calificacion"] for r in all_resenas) / len(all_resenas) if all_resenas else 0
+    await db.prestadores.update_one(
+        {"id": data.prestador_id},
+        {"$set": {"calificacion_promedio": round(avg, 1), "total_resenas": len(all_resenas)}}
+    )
+    
+    resena.pop("_id", None)
+    return resena
+
+# ============== FAVORITOS ENDPOINTS ==============
+
+@api_router.get("/favoritos")
+async def get_favoritos(request: Request):
+    user = await get_current_user(request)
+    favoritos = await db.favoritos.find({"user_id": user["user_id"]}, {"_id": 0}).to_list(100)
+    return favoritos
+
+@api_router.post("/favoritos")
+async def add_favorito(request: Request):
+    user = await get_current_user(request)
+    body = await request.json()
+    
+    tipo = body.get("tipo")
+    referencia_id = body.get("referencia_id")
+    
+    if tipo not in ["municipio", "evento", "prestador"]:
+        raise HTTPException(status_code=400, detail="Tipo inválido")
+    
+    existing = await db.favoritos.find_one({
+        "user_id": user["user_id"],
+        "tipo": tipo,
+        "referencia_id": referencia_id
+    })
+    if existing:
+        raise HTTPException(status_code=400, detail="Ya está en favoritos")
+    
+    favorito = {
+        "id": str(uuid.uuid4()),
+        "user_id": user["user_id"],
+        "tipo": tipo,
+        "referencia_id": referencia_id,
+        "fecha": datetime.now(timezone.utc).isoformat()
+    }
+    
+    await db.favoritos.insert_one(favorito)
+    favorito.pop("_id", None)
+    return favorito
+
+@api_router.delete("/favoritos/{favorito_id}")
+async def remove_favorito(favorito_id: str, request: Request):
+    user = await get_current_user(request)
+    await db.favoritos.delete_one({"id": favorito_id, "user_id": user["user_id"]})
+    return {"message": "Eliminado de favoritos"}
+
+# ============== SOLICITUDES PRESTADORES ENDPOINTS ==============
+
+@api_router.get("/solicitudes-prestadores")
+async def get_solicitudes(estado: Optional[str] = None, request: Request = None):
+    user = await get_current_user(request)
+    
+    query = {}
+    if user["rol"] == "encargado":
+        query["encargado_id"] = user["user_id"]
+    elif user["rol"] != "superadmin":
+        raise HTTPException(status_code=403, detail="No tienes permiso")
+    
+    if estado:
+        query["estado"] = estado
+    
+    solicitudes = await db.solicitudes_prestadores.find(query, {"_id": 0}).to_list(100)
+    return solicitudes
+
+@api_router.post("/solicitudes-prestadores")
+async def create_solicitud(request: Request):
+    user = await get_current_user(request)
+    if user["rol"] != "encargado":
+        raise HTTPException(status_code=403, detail="Solo encargados pueden proponer")
+    
+    body = await request.json()
+    
+    solicitud = {
+        "id": str(uuid.uuid4()),
+        "datos_prestador": body.get("datos_prestador", {}),
+        "municipio_id": user.get("municipio_id", ""),
+        "encargado_id": user["user_id"],
+        "estado": "pendiente",
+        "comentario_admin": None,
+        "fecha_solicitud": datetime.now(timezone.utc).isoformat(),
+        "fecha_resolucion": None
+    }
+    
+    await db.solicitudes_prestadores.insert_one(solicitud)
+    solicitud.pop("_id", None)
+    return solicitud
+
+@api_router.put("/solicitudes-prestadores/{solicitud_id}")
+async def update_solicitud(solicitud_id: str, request: Request):
+    user = await get_current_user(request)
+    if user["rol"] != "superadmin":
+        raise HTTPException(status_code=403, detail="Solo Super Admin puede aprobar/rechazar")
+    
+    body = await request.json()
+    estado = body.get("estado")
+    comentario = body.get("comentario", "")
+    
+    if estado not in ["aprobado", "rechazado"]:
+        raise HTTPException(status_code=400, detail="Estado inválido")
+    
+    solicitud = await db.solicitudes_prestadores.find_one({"id": solicitud_id}, {"_id": 0})
+    if not solicitud:
+        raise HTTPException(status_code=404, detail="Solicitud no encontrada")
+    
+    await db.solicitudes_prestadores.update_one(
+        {"id": solicitud_id},
+        {"$set": {
+            "estado": estado,
+            "comentario_admin": comentario,
+            "fecha_resolucion": datetime.now(timezone.utc).isoformat()
+        }}
+    )
+    
+    # If approved, create the prestador
+    if estado == "aprobado":
+        datos = solicitud["datos_prestador"]
+        prestador = {
+            "id": str(uuid.uuid4()),
+            "nombre": datos.get("nombre", ""),
+            "tipo": datos.get("tipo", "OTROS"),
+            "subtipo": datos.get("subtipo"),
+            "municipio_id": solicitud["municipio_id"],
+            "descripcion": datos.get("descripcion"),
+            "foto_url": datos.get("foto_url"),
+            "telefono": datos.get("telefono"),
+            "whatsapp": datos.get("whatsapp"),
+            "horarios": datos.get("horarios"),
+            "direccion": datos.get("direccion"),
+            "calificacion_promedio": 0.0,
+            "total_resenas": 0,
+            "verificado": True,
+            "activo": True,
+            "propuesto_por_id": solicitud["encargado_id"],
+            "aprobado_por_id": user["user_id"],
+            "created_at": datetime.now(timezone.utc).isoformat()
+        }
+        await db.prestadores.insert_one(prestador)
+    
+    # Log notification (MOCKED)
+    logger.info(f"[MOCKED EMAIL] Solicitud {estado}: notificar a encargado {solicitud['encargado_id']}")
+    
+    return {"message": f"Solicitud {estado}"}
+
+# ============== ADMIN ENDPOINTS ==============
+
+@api_router.get("/admin/stats")
+async def get_admin_stats(request: Request):
+    user = await get_current_user(request)
+    if user["rol"] != "superadmin":
+        raise HTTPException(status_code=403, detail="Solo Super Admin")
+    
+    municipios_publicados = await db.municipios.count_documents({"estado": "publicado"})
+    municipios_borrador = await db.municipios.count_documents({"estado": "borrador"})
+    municipios_sin_configurar = await db.municipios.count_documents({"estado": "sin_configurar"})
+    
+    prestadores_verificados = await db.prestadores.count_documents({"verificado": True, "activo": True})
+    turistas_total = await db.usuarios.count_documents({"rol": "turista"})
+    emergencias_activas = await db.emergencias.count_documents({"estado": "activa"})
+    emergencias_resueltas = await db.emergencias.count_documents({"estado": "resuelta"})
+    eventos_proximos = await db.eventos.count_documents({"publicado": True})
+    solicitudes_pendientes = await db.solicitudes_prestadores.count_documents({"estado": "pendiente"})
+    
+    return {
+        "municipios": {
+            "publicados": municipios_publicados,
+            "borrador": municipios_borrador,
+            "sin_configurar": municipios_sin_configurar,
+            "total": municipios_publicados + municipios_borrador + municipios_sin_configurar
+        },
+        "prestadores_verificados": prestadores_verificados,
+        "turistas_total": turistas_total,
+        "emergencias": {
+            "activas": emergencias_activas,
+            "resueltas": emergencias_resueltas
+        },
+        "eventos_proximos": eventos_proximos,
+        "solicitudes_pendientes": solicitudes_pendientes
+    }
+
+@api_router.post("/admin/usuarios")
+async def create_usuario(request: Request):
+    """Create encargado or prestador user (Super Admin only)"""
+    admin = await get_current_user(request)
+    if admin["rol"] != "superadmin":
+        raise HTTPException(status_code=403, detail="Solo Super Admin")
+    
+    body = await request.json()
+    email = body.get("email", "").lower().strip()
+    nombre = body.get("nombre", "")
+    rol = body.get("rol", "encargado")
+    municipio_id = body.get("municipio_id")
+    password = body.get("password", f"Veracruz{uuid.uuid4().hex[:8]}!")
+    
+    if rol not in ["encargado", "prestador"]:
+        raise HTTPException(status_code=400, detail="Rol inválido")
+    
+    existing = await db.usuarios.find_one({"email": email})
+    if existing:
+        raise HTTPException(status_code=400, detail="Email ya registrado")
+    
+    user_id = f"user_{uuid.uuid4().hex[:12]}"
+    user = {
+        "user_id": user_id,
+        "email": email,
+        "password_hash": hash_password(password),
+        "nombre": nombre,
+        "foto_url": None,
+        "rol": rol,
+        "municipio_id": municipio_id,
+        "activo": True,
+        "fecha_registro": datetime.now(timezone.utc).isoformat(),
+        "ultimo_acceso": None
+    }
+    
+    await db.usuarios.insert_one(user)
+    
+    # If encargado, assign to municipio
+    if rol == "encargado" and municipio_id:
+        await db.municipios.update_one(
+            {"id": municipio_id},
+            {"$set": {"encargado_id": user_id}}
+        )
+    
+    # Log email notification (MOCKED)
+    logger.info(f"[MOCKED EMAIL] Nuevo usuario creado: {email} con contraseña: {password}")
+    
+    return {
+        "user_id": user_id,
+        "email": email,
+        "nombre": nombre,
+        "rol": rol,
+        "password": password,  # Return password only on creation
+        "message": "Usuario creado. Email enviado con credenciales."
+    }
+
+@api_router.get("/admin/usuarios")
+async def get_usuarios(rol: Optional[str] = None, request: Request = None):
+    admin = await get_current_user(request)
+    if admin["rol"] != "superadmin":
+        raise HTTPException(status_code=403, detail="Solo Super Admin")
+    
+    query = {}
+    if rol:
+        query["rol"] = rol
+    
+    usuarios = await db.usuarios.find(query, {"_id": 0, "password_hash": 0}).to_list(500)
+    return usuarios
+
+# ============== FILE UPLOAD ENDPOINTS ==============
+
+@api_router.post("/upload")
+async def upload_file(file: UploadFile = File(...), request: Request = None):
+    user = await get_current_user(request)
+    
+    # Validate file
+    if not file.content_type or not file.content_type.startswith("image/"):
+        raise HTTPException(status_code=400, detail="Solo se permiten imágenes")
+    
+    content = await file.read()
+    if len(content) > 5 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="Archivo muy grande (máx 5MB)")
+    
+    ext = file.filename.split(".")[-1] if "." in file.filename else "jpg"
+    path = f"{APP_NAME}/uploads/{user['user_id']}/{uuid.uuid4()}.{ext}"
+    
+    try:
+        result = put_object(path, content, file.content_type)
+        
+        # Store reference in DB
+        file_record = {
+            "id": str(uuid.uuid4()),
+            "storage_path": result["path"],
+            "original_filename": file.filename,
+            "content_type": file.content_type,
+            "size": result.get("size", len(content)),
+            "user_id": user["user_id"],
+            "is_deleted": False,
+            "created_at": datetime.now(timezone.utc).isoformat()
+        }
+        await db.files.insert_one(file_record)
+        
+        return {
+            "path": result["path"],
+            "url": f"/api/files/{result['path']}",
+            "size": file_record["size"]
+        }
+    except Exception as e:
+        logger.error(f"Upload failed: {e}")
+        raise HTTPException(status_code=500, detail="Error al subir archivo")
+
+@api_router.get("/files/{path:path}")
+async def download_file(path: str, auth: Optional[str] = Query(None)):
+    try:
+        record = await db.files.find_one({"storage_path": path, "is_deleted": False}, {"_id": 0})
+        if not record:
+            raise HTTPException(status_code=404, detail="Archivo no encontrado")
+        
+        data, content_type = get_object(path)
+        return Response(content=data, media_type=record.get("content_type", content_type))
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Download failed: {e}")
+        raise HTTPException(status_code=500, detail="Error al descargar archivo")
+
+# ============== SEARCH ENDPOINT ==============
+
+@api_router.get("/search")
+async def global_search(q: str, limit: int = 10):
+    if not q or len(q) < 2:
+        return {"municipios": [], "eventos": [], "prestadores": []}
+    
+    regex = {"$regex": q, "$options": "i"}
+    
+    municipios = await db.municipios.find(
+        {"$or": [{"nombre": regex}, {"tags": regex}, {"region": regex}]},
+        {"_id": 0, "id": 1, "nombre": 1, "slug": 1, "foto_portada_url": 1, "pueblo_magico": 1, "region": 1}
+    ).limit(limit).to_list(limit)
+    
+    eventos = await db.eventos.find(
+        {"$or": [{"nombre": regex}, {"descripcion": regex}], "publicado": True},
+        {"_id": 0, "id": 1, "nombre": 1, "foto_url": 1, "fecha_inicio": 1, "tipo": 1}
+    ).limit(limit).to_list(limit)
+    
+    prestadores = await db.prestadores.find(
+        {"$or": [{"nombre": regex}, {"descripcion": regex}, {"tipo": regex}], "activo": True, "verificado": True},
+        {"_id": 0, "id": 1, "nombre": 1, "foto_url": 1, "tipo": 1, "calificacion_promedio": 1}
+    ).limit(limit).to_list(limit)
+    
+    return {"municipios": municipios, "eventos": eventos, "prestadores": prestadores}
+
+# ============== HEALTH CHECK ==============
+
+@api_router.get("/health")
+async def health_check():
+    return {"status": "healthy", "timestamp": datetime.now(timezone.utc).isoformat()}
+
 @api_router.get("/")
 async def root():
-    return {"message": "Hello World"}
+    return {"message": "Veracruz Contigo API", "version": "1.0.0"}
 
-@api_router.post("/status", response_model=StatusCheck)
-async def create_status_check(input: StatusCheckCreate):
-    status_dict = input.model_dump()
-    status_obj = StatusCheck(**status_dict)
-    
-    # Convert to dict and serialize datetime to ISO string for MongoDB
-    doc = status_obj.model_dump()
-    doc['timestamp'] = doc['timestamp'].isoformat()
-    
-    _ = await db.status_checks.insert_one(doc)
-    return status_obj
-
-@api_router.get("/status", response_model=List[StatusCheck])
-async def get_status_checks():
-    # Exclude MongoDB's _id field from the query results
-    status_checks = await db.status_checks.find({}, {"_id": 0}).to_list(1000)
-    
-    # Convert ISO string timestamps back to datetime objects
-    for check in status_checks:
-        if isinstance(check['timestamp'], str):
-            check['timestamp'] = datetime.fromisoformat(check['timestamp'])
-    
-    return status_checks
-
-# Include the router in the main app
+# Include the router
 app.include_router(api_router)
 
+# CORS Middleware
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
-    allow_origins=os.environ.get('CORS_ORIGINS', '*').split(','),
+    allow_origins=["*"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger(__name__)
+# Startup event
+@app.on_event("startup")
+async def startup_event():
+    logger.info("Starting Veracruz Contigo API...")
+    try:
+        init_storage()
+    except Exception as e:
+        logger.warning(f"Storage init skipped: {e}")
+    
+    await seed_municipios()
+    await seed_admin()
+    await seed_sample_events()
+    await seed_sample_prestadores()
+    
+    # Create indexes
+    await db.usuarios.create_index("email", unique=True)
+    await db.usuarios.create_index("user_id", unique=True)
+    await db.municipios.create_index("slug", unique=True)
+    await db.prestadores.create_index("municipio_id")
+    await db.eventos.create_index("fecha_inicio")
+    await db.emergencias.create_index("timestamp")
+    
+    logger.info("Veracruz Contigo API ready!")
 
 @app.on_event("shutdown")
-async def shutdown_db_client():
+async def shutdown_event():
     client.close()
