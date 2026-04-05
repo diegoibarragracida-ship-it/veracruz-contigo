@@ -1,0 +1,193 @@
+# Veracruz Contigo - PRD (Product Requirements Document)
+
+## Visión General
+**Plataforma oficial de turismo del Estado de Veracruz, México**
+
+Sistema multi-rol con 4 niveles de usuarios para gestionar información turística de los 232 municipios de Veracruz.
+
+---
+
+## Arquitectura del Sistema
+
+### Backend (FastAPI + MongoDB)
+- **Puerto:** 8001
+- **Base de datos:** MongoDB (MONGO_URL en .env)
+- **Autenticación:** JWT para admin/encargados/prestadores, Google OAuth para turistas
+
+### Frontend (React + Tailwind CSS)
+- **Puerto:** 3000
+- **Componentes UI:** Shadcn/UI
+- **Rutas principales:** React Router
+
+---
+
+## User Personas y Roles
+
+### 1. Super Administrador
+- Acceso total al sistema
+- Crea credenciales para encargados municipales
+- Verifica prestadores de servicios
+- Publica alertas de seguridad/meteorológicas
+- Ve dashboard con estadísticas globales
+
+### 2. Encargado Municipal (232 posibles)
+- Gestiona su municipio asignado
+- Sube fotos, videos, eventos
+- Propone prestadores para verificación
+- Ve estadísticas de su municipio
+
+### 3. Prestador de Servicios
+- Perfil verificado por Super Admin
+- Gestiona su información de negocio
+- Badge "✓ Prestador Verificado"
+
+### 4. Turista
+- Login con Google OAuth
+- Modo lectura sin cuenta
+- Con cuenta: favoritos, reseñas, botón de pánico GPS
+
+---
+
+## Core Requirements (Estáticos)
+
+### Funcionalidades Implementadas ✅
+1. **Sistema de Autenticación**
+   - JWT para admin/encargados/prestadores
+   - Google OAuth 2.0 (Emergent Auth) para turistas
+   - Roles y permisos en frontend y backend
+
+2. **Gestión de Municipios**
+   - 199 municipios únicos precargados
+   - 9 Pueblos Mágicos marcados
+   - Estados: publicado/borrador/sin_configurar
+
+3. **Prestadores de Servicios**
+   - CRUD completo
+   - Sistema de verificación
+   - Calificaciones y reseñas
+
+4. **Eventos**
+   - 5 eventos de ejemplo precargados
+   - Filtros por tipo y municipio
+
+5. **Sistema de Alertas**
+   - Creación por Super Admin
+   - Tipos: meteorológica/seguridad/vial/salud
+
+6. **Botón de Pánico**
+   - Geolocalización GPS
+   - Llamada automática al 911
+   - Compartir por WhatsApp
+
+7. **Buscador Global**
+   - Búsqueda en municipios, eventos, prestadores
+   - Resultados en tiempo real (debounce 300ms)
+
+8. **Panel de Administración**
+   - Dashboard con métricas
+   - Gestión de usuarios
+   - Cola de aprobación de prestadores
+
+---
+
+## Lo Implementado (Historial)
+
+### 05/04/2026 - MVP v1.0
+- ✅ Backend completo con FastAPI
+- ✅ Frontend React con todas las páginas públicas
+- ✅ Sistema de autenticación dual (JWT + Google OAuth)
+- ✅ Seed de 199 municipios únicos
+- ✅ 9 Pueblos Mágicos configurados
+- ✅ 5 eventos de ejemplo
+- ✅ 4 prestadores de ejemplo verificados
+- ✅ Panel Super Admin completo
+- ✅ Panel Encargado Municipal
+- ✅ Panel Prestador
+- ✅ Página de emergencias con botón de pánico
+- ✅ Buscador global funcional
+- ✅ Object Storage de Emergent integrado
+
+### Integraciones
+- **Google OAuth:** Via Emergent Auth
+- **Object Storage:** Emergent Object Storage
+- **Emails:** MOCKED (logs en consola)
+- **Google Maps:** Pendiente (placeholders)
+
+---
+
+## Backlog Priorizado
+
+### P0 - Crítico (Próxima fase)
+- [ ] Integrar Google Maps API (GOOGLE_MAPS_API_KEY)
+- [ ] Configurar SMTP para emails reales
+- [ ] PWA: manifest.json y Service Worker
+
+### P1 - Alto
+- [ ] Sistema de estadísticas por municipio
+- [ ] Upload de imágenes funcional en panel encargado
+- [ ] Creación de eventos desde panel encargado
+- [ ] Sistema de reportes de prestadores
+
+### P2 - Medio
+- [ ] Mapa interactivo con pins personalizados
+- [ ] Historial de emergencias para turistas
+- [ ] Notificaciones en tiempo real (WebSocket)
+- [ ] Ordenar fotos por drag & drop
+
+### P3 - Bajo
+- [ ] SEO dinámico por municipio
+- [ ] Open Graph images
+- [ ] Sitemap.xml
+- [ ] PWA offline mode
+
+---
+
+## Credenciales de Prueba
+
+```
+Super Admin:
+Email: superadmin@veracruzcontigo.gob.mx
+Password: VeracruzAdmin2024!
+
+Turista:
+Login con Google (Emergent OAuth)
+```
+
+---
+
+## URLs de la API
+
+```
+Base: ${REACT_APP_BACKEND_URL}/api
+
+GET  /health              - Health check
+GET  /municipios          - Lista municipios
+GET  /municipios/:slug    - Detalle municipio
+GET  /prestadores         - Lista prestadores
+GET  /eventos             - Lista eventos
+GET  /alertas             - Alertas activas
+GET  /search?q=           - Búsqueda global
+POST /auth/login          - Login JWT
+POST /auth/session        - OAuth callback
+GET  /admin/stats         - Stats (admin)
+```
+
+---
+
+## Arquitectura de Archivos
+
+```
+/app/
+├── backend/
+│   ├── server.py         # API FastAPI completa
+│   └── .env              # Variables de entorno
+├── frontend/
+│   ├── src/
+│   │   ├── App.js        # Router y Auth Context
+│   │   ├── pages/        # Páginas públicas y admin
+│   │   └── components/   # Componentes reutilizables
+│   └── .env              # REACT_APP_BACKEND_URL
+└── memory/
+    ├── PRD.md            # Este documento
+    └── test_credentials.md
+```
