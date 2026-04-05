@@ -851,6 +851,383 @@ async def seed_sample_prestadores():
     await db.prestadores.insert_many(prestadores)
     logger.info(f"Seeded {len(prestadores)} sample prestadores")
 
+async def seed_municipio_photos_and_content():
+    """Add photos and content to main municipalities"""
+    
+    # Photos for Pueblos Mágicos and main municipalities
+    municipio_data = {
+        "Orizaba": {
+            "foto_portada_url": "https://images.unsplash.com/photo-1772551481564-78b4e46c5964?w=1200&q=85",
+            "descripcion": """Orizaba, conocida como la "Ciudad de las Aguas Alegres", es uno de los destinos más encantadores del estado de Veracruz. Ubicada en las faldas del majestuoso Pico de Orizaba (Citlaltépetl), la montaña más alta de México con 5,636 metros de altura, esta ciudad ofrece un clima templado ideal durante todo el año.
+
+Su centro histórico alberga joyas arquitectónicas como el Palacio de Hierro, diseñado por Gustave Eiffel, y la majestuosa Catedral de San Miguel Arcángel. El Paseo del Río Orizaba es perfecto para caminar entre jardines, fuentes y monumentos mientras disfrutas del paisaje montañoso.
+
+La ciudad es famosa por su teleférico que conecta el centro con el Cerro del Borrego, ofreciendo vistas panorámicas espectaculares. Su gastronomía incluye el famoso pan de Orizaba, los tamales de masa colada y el café de la región.""",
+            "historia": """Orizaba tiene una rica historia que se remonta a la época prehispánica, cuando era conocida como Ahauializapan, que significa "lugar de aguas alegres" en náhuatl. Fue un importante centro comercial durante la Colonia y jugó un papel crucial durante la Independencia y la Revolución Mexicana.
+
+El Palacio de Hierro, símbolo de la ciudad, fue originalmente diseñado para Bélgica pero adquirido por México en 1891. Durante el Porfiriato, Orizaba fue una de las ciudades más industrializadas del país, especialmente en la industria textil y cervecera.""",
+            "que_hacer": [
+                "Subir al teleférico y disfrutar vistas del Pico de Orizaba",
+                "Visitar el Palacio de Hierro y su museo",
+                "Recorrer el Paseo del Río Orizaba",
+                "Explorar el Museo de Arte del Estado",
+                "Caminar por el centro histórico colonial",
+                "Probar el famoso pan de Orizaba",
+                "Visitar la Cascada de Elefante",
+                "Hacer senderismo en las montañas cercanas",
+                "Conocer la Ex-Fábrica de San Lorenzo"
+            ],
+            "como_llegar": "Desde la Ciudad de México: 4 horas por la autopista México-Puebla-Orizaba. Desde Veracruz puerto: 2 horas por la autopista Veracruz-Córdoba. También hay servicio de autobuses ADO desde las principales ciudades.",
+            "clima": "Templado húmedo con lluvias en verano. Temperatura promedio: 18°C",
+            "altitud": "1,236 metros sobre el nivel del mar",
+            "tags": ["Pueblo Mágico", "Montaña", "Cultura", "Naturaleza", "Aventura", "Gastronomía"],
+            "fotos": [
+                {"url": "https://images.unsplash.com/photo-1772551481564-78b4e46c5964?w=800", "etiqueta": "Teleférico"},
+                {"url": "https://images.unsplash.com/photo-1759350414036-6e51a526d405?w=800", "etiqueta": "Pico de Orizaba"},
+                {"url": "https://images.unsplash.com/photo-1626024367563-c6357a1754f5?w=800", "etiqueta": "Montañas"},
+                {"url": "https://images.unsplash.com/photo-1728932828842-7839cdf57ced?w=800", "etiqueta": "Cascada"},
+                {"url": "https://images.unsplash.com/photo-1762850424391-542c52f0c64b?w=800", "etiqueta": "Vista panorámica"}
+            ],
+            "videos": ["https://www.youtube.com/watch?v=orizaba_turismo"],
+            "estado": "publicado"
+        },
+        "Coatepec": {
+            "foto_portada_url": "https://images.unsplash.com/photo-1652015496419-58606c1b5d1c?w=1200&q=85",
+            "descripcion": "Capital del café en México, Coatepec es un encantador Pueblo Mágico rodeado de fincas cafetaleras, cascadas y bosque de niebla. Sus calles empedradas, casas coloridas y el aroma a café tostado crean una experiencia única.",
+            "que_hacer": ["Tour a fincas cafetaleras", "Visitar cascadas", "Recorrer el centro histórico", "Degustar café de altura"],
+            "clima": "Templado húmedo, ideal para el café",
+            "altitud": "1,200 msnm",
+            "tags": ["Pueblo Mágico", "Café", "Naturaleza", "Gastronomía"],
+            "estado": "publicado"
+        },
+        "Papantla": {
+            "foto_portada_url": "https://images.unsplash.com/photo-1666808982367-b9180dac5948?w=1200&q=85",
+            "descripcion": "Cuna de la vainilla y de los famosos Voladores de Papantla, Patrimonio Cultural de la Humanidad. Hogar de la zona arqueológica de El Tajín, una de las más importantes de Mesoamérica.",
+            "que_hacer": ["Visitar El Tajín", "Ver la Danza de los Voladores", "Tour de vainilla", "Conocer la cultura totonaca"],
+            "clima": "Cálido húmedo",
+            "tags": ["Pueblo Mágico", "Arqueología", "Cultura", "Tradiciones"],
+            "estado": "publicado"
+        },
+        "Tlacotalpan": {
+            "foto_portada_url": "https://images.unsplash.com/photo-1759054716857-881c10aa4941?w=1200&q=85",
+            "descripcion": "Patrimonio de la Humanidad por la UNESCO. Ciudad colonial a orillas del río Papaloapan con casas de colores vibrantes, portales y arquitectura única. Cuna del son jarocho.",
+            "que_hacer": ["Paseo en lancha por el río", "Recorrer el centro histórico", "Escuchar son jarocho", "Visitar la Feria de la Candelaria"],
+            "clima": "Cálido",
+            "tags": ["Pueblo Mágico", "UNESCO", "Río", "Música", "Cultura"],
+            "estado": "publicado"
+        },
+        "Xico": {
+            "foto_portada_url": "https://images.unsplash.com/photo-1728932827634-361dfdcd925e?w=1200&q=85",
+            "descripcion": "Pueblo Mágico famoso por sus cascadas, el mole xiqueño y sus fiestas patronales de Santa María Magdalena donde adornan las calles con tapetes de aserrín.",
+            "que_hacer": ["Visitar la Cascada de Texolo", "Probar el mole xiqueño", "Ver los tapetes de aserrín", "Senderismo"],
+            "clima": "Templado con neblina frecuente",
+            "tags": ["Pueblo Mágico", "Cascadas", "Gastronomía", "Naturaleza"],
+            "estado": "publicado"
+        },
+        "Veracruz": {
+            "foto_portada_url": "https://images.unsplash.com/photo-1639222188528-3498adec4f40?w=1200&q=85",
+            "descripcion": "El puerto más importante de México, ciudad de historia, música y el carnaval más alegre del mundo. Su malecón, el acuario y el centro histórico son imperdibles.",
+            "que_hacer": ["Caminar por el malecón", "Visitar San Juan de Ulúa", "Ver el Carnaval", "Probar mariscos frescos"],
+            "clima": "Tropical cálido",
+            "tags": ["Playa", "Puerto", "Carnaval", "Gastronomía", "Historia"],
+            "estado": "publicado"
+        },
+        "Xalapa": {
+            "foto_portada_url": "https://images.unsplash.com/photo-1652015496419-58606c1b5d1c?w=1200&q=85",
+            "descripcion": "Capital del estado, conocida como la 'Atenas Veracruzana' por su rica vida cultural. Ciudad universitaria con el Museo de Antropología más importante después del de la CDMX.",
+            "que_hacer": ["Visitar el Museo de Antropología", "Recorrer los Lagos del Dique", "Disfrutar cafés locales", "Asistir a eventos culturales"],
+            "clima": "Templado húmedo con niebla frecuente",
+            "tags": ["Ciudad", "Cultura", "Café", "Museos"],
+            "estado": "publicado"
+        },
+        "Catemaco": {
+            "foto_portada_url": "https://images.unsplash.com/photo-1629221198624-825cee95962a?w=1200&q=85",
+            "descripcion": "Famoso por su laguna, la magia y los brujos. Rodeado de selva tropical, cascadas y la Reserva de la Biosfera de Los Tuxtlas.",
+            "que_hacer": ["Paseo en lancha por la laguna", "Visitar Nanciyaga", "Conocer a los brujos", "Explorar la selva"],
+            "clima": "Tropical húmedo",
+            "tags": ["Laguna", "Naturaleza", "Mística", "Ecoturismo"],
+            "estado": "publicado"
+        },
+        "Los Tuxtlas": {
+            "foto_portada_url": "https://images.unsplash.com/photo-1648485716909-2636f8abb2cd?w=1200&q=85",
+            "descripcion": "Reserva de la Biosfera con selva tropical, volcanes, cascadas y playas. Uno de los últimos reductos de selva alta en México.",
+            "que_hacer": ["Senderismo en la reserva", "Visitar el volcán San Martín", "Conocer Sontecomapan", "Observar aves"],
+            "clima": "Tropical muy húmedo",
+            "tags": ["Pueblo Mágico", "Naturaleza", "Ecoturismo", "Selva", "Aventura"],
+            "estado": "publicado"
+        }
+    }
+    
+    for nombre, data in municipio_data.items():
+        result = await db.municipios.update_one(
+            {"nombre": nombre},
+            {"$set": data}
+        )
+        if result.modified_count > 0:
+            logger.info(f"Updated municipio: {nombre}")
+    
+    # Create encargado for Orizaba
+    orizaba = await db.municipios.find_one({"nombre": "Orizaba"}, {"_id": 0, "id": 1})
+    if orizaba:
+        existing_encargado = await db.usuarios.find_one({"email": "encargado.orizaba@veracruzcontigo.gob.mx"})
+        if not existing_encargado:
+            encargado_id = f"user_{uuid.uuid4().hex[:12]}"
+            encargado = {
+                "user_id": encargado_id,
+                "email": "encargado.orizaba@veracruzcontigo.gob.mx",
+                "password_hash": hash_password("Orizaba2024!"),
+                "nombre": "María González Hernández",
+                "foto_url": None,
+                "rol": "encargado",
+                "municipio_id": orizaba["id"],
+                "activo": True,
+                "fecha_registro": datetime.now(timezone.utc).isoformat(),
+                "ultimo_acceso": datetime.now(timezone.utc).isoformat()
+            }
+            await db.usuarios.insert_one(encargado)
+            await db.municipios.update_one({"id": orizaba["id"]}, {"$set": {"encargado_id": encargado_id}})
+            logger.info("Created encargado for Orizaba")
+        
+        # Add prestadores for Orizaba
+        existing_orizaba_prestadores = await db.prestadores.count_documents({"municipio_id": orizaba["id"]})
+        if existing_orizaba_prestadores == 0:
+            orizaba_prestadores = [
+                {
+                    "id": str(uuid.uuid4()),
+                    "nombre": "Hotel Fiesta Cascada",
+                    "tipo": "HOSPEDAJE",
+                    "subtipo": "Hotel",
+                    "municipio_id": orizaba["id"],
+                    "descripcion": "Hotel de 4 estrellas con vista al Pico de Orizaba. Alberca, spa y restaurante gourmet.",
+                    "foto_url": "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=800",
+                    "telefono": "272-724-3500",
+                    "whatsapp": "522727243500",
+                    "horarios": "24 horas",
+                    "direccion": "Oriente 6 No. 265, Centro",
+                    "calificacion_promedio": 4.6,
+                    "total_resenas": 89,
+                    "verificado": True,
+                    "activo": True,
+                    "vistas_total": 245,
+                    "contactos_total": 67,
+                    "created_at": datetime.now(timezone.utc).isoformat()
+                },
+                {
+                    "id": str(uuid.uuid4()),
+                    "nombre": "Panadería La Fama de Orizaba",
+                    "tipo": "GASTRONOMÍA",
+                    "subtipo": "Panadería",
+                    "municipio_id": orizaba["id"],
+                    "descripcion": "La panadería más tradicional de Orizaba. Famosa por su pan de yema, conchas y el tradicional pan de muerto.",
+                    "foto_url": "https://images.unsplash.com/photo-1509440159596-0249088772ff?w=800",
+                    "telefono": "272-725-1234",
+                    "whatsapp": "522727251234",
+                    "horarios": "6:00 AM - 9:00 PM",
+                    "direccion": "Sur 5 No. 89, Centro",
+                    "calificacion_promedio": 4.9,
+                    "total_resenas": 234,
+                    "verificado": True,
+                    "activo": True,
+                    "vistas_total": 567,
+                    "contactos_total": 123,
+                    "created_at": datetime.now(timezone.utc).isoformat()
+                },
+                {
+                    "id": str(uuid.uuid4()),
+                    "nombre": "Teleférico de Orizaba Tours",
+                    "tipo": "TURISMO",
+                    "subtipo": "Tour operador",
+                    "municipio_id": orizaba["id"],
+                    "descripcion": "Tours guiados al teleférico, Cerro del Borrego y expediciones al Pico de Orizaba.",
+                    "foto_url": "https://images.unsplash.com/photo-1772551481564-78b4e46c5964?w=800",
+                    "telefono": "272-726-7890",
+                    "whatsapp": "522727267890",
+                    "horarios": "8:00 AM - 6:00 PM",
+                    "direccion": "Estación del Teleférico",
+                    "calificacion_promedio": 4.8,
+                    "total_resenas": 156,
+                    "verificado": True,
+                    "activo": True,
+                    "vistas_total": 890,
+                    "contactos_total": 234,
+                    "created_at": datetime.now(timezone.utc).isoformat()
+                },
+                {
+                    "id": str(uuid.uuid4()),
+                    "nombre": "Restaurante Gran Café de la Parroquia",
+                    "tipo": "GASTRONOMÍA",
+                    "subtipo": "Restaurante",
+                    "municipio_id": orizaba["id"],
+                    "descripcion": "Café tradicional estilo veracruzano. Especialidad en desayunos y el famoso café lechero.",
+                    "foto_url": "https://images.unsplash.com/photo-1554118811-1e0d58224f24?w=800",
+                    "telefono": "272-725-5678",
+                    "whatsapp": "522727255678",
+                    "horarios": "7:00 AM - 11:00 PM",
+                    "direccion": "Palacio de Hierro, Centro",
+                    "calificacion_promedio": 4.7,
+                    "total_resenas": 312,
+                    "verificado": True,
+                    "activo": True,
+                    "vistas_total": 456,
+                    "contactos_total": 178,
+                    "created_at": datetime.now(timezone.utc).isoformat()
+                }
+            ]
+            await db.prestadores.insert_many(orizaba_prestadores)
+            logger.info("Created prestadores for Orizaba")
+        
+        # Add events for Orizaba
+        existing_orizaba_eventos = await db.eventos.count_documents({"municipio_id": orizaba["id"]})
+        if existing_orizaba_eventos == 0:
+            orizaba_eventos = [
+                {
+                    "id": str(uuid.uuid4()),
+                    "nombre": "Festival de la Primavera Orizaba",
+                    "municipio_id": orizaba["id"],
+                    "fecha_inicio": "2026-03-21",
+                    "fecha_fin": "2026-03-30",
+                    "descripcion": "Celebración de la primavera con desfiles florales, música en vivo, exposiciones de arte y gastronomía local.",
+                    "foto_url": "https://images.unsplash.com/photo-1533174072545-7a4b6ad7a6c3?w=800",
+                    "tipo": "Cultural",
+                    "lugar": "Centro Histórico y Parque Castillo",
+                    "publicado": True,
+                    "created_at": datetime.now(timezone.utc).isoformat()
+                },
+                {
+                    "id": str(uuid.uuid4()),
+                    "nombre": "Feria del Pan de Orizaba",
+                    "municipio_id": orizaba["id"],
+                    "fecha_inicio": "2026-08-15",
+                    "fecha_fin": "2026-08-20",
+                    "descripcion": "Celebración del famoso pan orizabeño con concursos, degustaciones y talleres de panadería tradicional.",
+                    "foto_url": "https://images.unsplash.com/photo-1509440159596-0249088772ff?w=800",
+                    "tipo": "Gastronómico",
+                    "lugar": "Plaza del Palacio de Hierro",
+                    "publicado": True,
+                    "created_at": datetime.now(timezone.utc).isoformat()
+                }
+            ]
+            await db.eventos.insert_many(orizaba_eventos)
+            logger.info("Created eventos for Orizaba")
+
+# ============== NOTIFICATIONS SYSTEM ==============
+
+async def check_interest_spikes():
+    """Check for interest spikes and create notifications"""
+    end_date = datetime.now(timezone.utc)
+    start_date = end_date - timedelta(days=1)
+    prev_start = start_date - timedelta(days=1)
+    
+    # Get today's views by municipio
+    today_pipeline = [
+        {
+            "$match": {
+                "target_type": "municipio",
+                "event_type": "view",
+                "timestamp": {"$gte": start_date.isoformat()}
+            }
+        },
+        {
+            "$group": {
+                "_id": "$target_id",
+                "count": {"$sum": 1}
+            }
+        }
+    ]
+    
+    today_views = {item["_id"]: item["count"] for item in await db.analytics.aggregate(today_pipeline).to_list(500)}
+    
+    # Get previous day's views
+    prev_pipeline = [
+        {
+            "$match": {
+                "target_type": "municipio",
+                "event_type": "view",
+                "timestamp": {"$gte": prev_start.isoformat(), "$lt": start_date.isoformat()}
+            }
+        },
+        {
+            "$group": {
+                "_id": "$target_id",
+                "count": {"$sum": 1}
+            }
+        }
+    ]
+    
+    prev_views = {item["_id"]: item["count"] for item in await db.analytics.aggregate(prev_pipeline).to_list(500)}
+    
+    # Find spikes (more than 50% increase with at least 10 views)
+    spikes = []
+    for municipio_id, today_count in today_views.items():
+        prev_count = prev_views.get(municipio_id, 0)
+        if today_count >= 10 and (prev_count == 0 or today_count > prev_count * 1.5):
+            spikes.append({
+                "municipio_id": municipio_id,
+                "today_views": today_count,
+                "prev_views": prev_count,
+                "increase_pct": ((today_count - prev_count) / max(prev_count, 1)) * 100
+            })
+    
+    # Create notifications for spikes
+    for spike in spikes:
+        municipio = await db.municipios.find_one({"id": spike["municipio_id"]}, {"_id": 0, "nombre": 1, "encargado_id": 1})
+        if municipio and municipio.get("encargado_id"):
+            existing_notif = await db.notificaciones.find_one({
+                "municipio_id": spike["municipio_id"],
+                "tipo": "spike",
+                "fecha": {"$gte": start_date.isoformat()}
+            })
+            
+            if not existing_notif:
+                notification = {
+                    "id": str(uuid.uuid4()),
+                    "user_id": municipio["encargado_id"],
+                    "municipio_id": spike["municipio_id"],
+                    "tipo": "spike",
+                    "titulo": f"¡{municipio['nombre']} está en tendencia!",
+                    "mensaje": f"Tu municipio tuvo {spike['today_views']} visitas hoy, un aumento del {spike['increase_pct']:.0f}% respecto a ayer.",
+                    "leida": False,
+                    "fecha": datetime.now(timezone.utc).isoformat()
+                }
+                await db.notificaciones.insert_one(notification)
+                logger.info(f"[NOTIFICATION] Spike detected for {municipio['nombre']}")
+    
+    return spikes
+
+@api_router.get("/notifications")
+async def get_notifications(request: Request):
+    """Get notifications for current user"""
+    user = await get_current_user(request)
+    
+    notifications = await db.notificaciones.find(
+        {"user_id": user["user_id"]},
+        {"_id": 0}
+    ).sort("fecha", -1).limit(50).to_list(50)
+    
+    return notifications
+
+@api_router.put("/notifications/{notification_id}/read")
+async def mark_notification_read(notification_id: str, request: Request):
+    """Mark notification as read"""
+    user = await get_current_user(request)
+    
+    await db.notificaciones.update_one(
+        {"id": notification_id, "user_id": user["user_id"]},
+        {"$set": {"leida": True}}
+    )
+    
+    return {"status": "ok"}
+
+@api_router.post("/admin/check-spikes")
+async def trigger_spike_check(request: Request):
+    """Manually trigger spike detection (admin only)"""
+    user = await get_current_user(request)
+    if user["rol"] != "superadmin":
+        raise HTTPException(status_code=403, detail="Solo Super Admin")
+    
+    spikes = await check_interest_spikes()
+    return {"spikes_detected": len(spikes), "spikes": spikes}
+
 # ============== AUTH ENDPOINTS ==============
 
 @api_router.post("/auth/register")
