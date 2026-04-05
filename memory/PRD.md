@@ -140,6 +140,17 @@ Sistema multi-rol con 4 niveles de usuarios para gestionar información turísti
 - 4 prestadores y 2 eventos para Orizaba
 - Sistema de notificaciones de pico de interés (backend + UI)
 
+### 05/04/2026 - Logos de Gobierno + Rutas de Viaje v1.3
+- Escudo del Gobierno de Veracruz en Header y Footer
+- Franja institucional en Footer con "Gobierno del Estado de Veracruz - Secretaría de Turismo y Cultura"
+- Página de Rutas de Viaje con 4 itinerarios:
+  - Escapada Express (3 días): Xalapa, Coatepec, Xico
+  - Ruta de Pueblos Mágicos (5 días): Orizaba, Coatepec, Xico, Papantla, Tlacotalpan
+  - Aventura Veracruzana Completa (7 días): recorrido completo del estado
+  - Ruta Cultural y Arqueológica (4 días): Veracruz, Papantla, Xalapa, Orizaba
+- Cada ruta con itinerario día a día, actividades, tips y enlaces a municipios
+- Enlace "Rutas" en navegación principal y homepage
+
 ### Integraciones
 - **Google OAuth:** Via Emergent Auth
 - **Object Storage:** Emergent Object Storage
