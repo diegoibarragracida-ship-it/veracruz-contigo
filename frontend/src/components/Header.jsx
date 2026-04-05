@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/App";
-import { Search, Menu, X, User, LogOut, MapPin, Calendar, Users, ShieldAlert, BookOpen, ChevronDown } from "lucide-react";
+import { Search, Menu, X, User, LogOut, MapPin, Calendar, Users, ShieldAlert, BookOpen, ChevronDown, Route } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -11,6 +11,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import SearchBar from "./SearchBar";
+
+const GOV_LOGO = "https://static.prod-images.emergentagent.com/jobs/36d8b249-864b-4a0f-9434-3e429d7d03e6/images/f7bca6024f3f141223d1f59fac0f6dec0b92f4e7ad640dbd3c2bb8b967f962b9.png";
 
 const Header = () => {
   const [isScrolled, setIsScrolled] = useState(false);
@@ -36,6 +38,7 @@ const Header = () => {
 
   const navLinks = [
     { href: "/explorar", label: "Explorar", icon: MapPin },
+    { href: "/rutas", label: "Rutas", icon: Route },
     { href: "/eventos", label: "Eventos", icon: Calendar },
     { href: "/prestadores", label: "Prestadores", icon: Users },
     { href: "/guia", label: "Guía", icon: BookOpen },
@@ -61,9 +64,12 @@ const Header = () => {
           <div className="flex items-center justify-between h-16 md:h-20">
             {/* Logo */}
             <Link to="/" className="flex items-center gap-2" data-testid="logo-link">
-              <div className="w-10 h-10 bg-[#1B5E20] rounded-full flex items-center justify-center">
-                <MapPin className="w-5 h-5 text-white" />
-              </div>
+              <img 
+                src={GOV_LOGO} 
+                alt="Escudo de Veracruz" 
+                className="h-9 w-auto"
+                data-testid="gov-logo-header"
+              />
               <div className="hidden sm:block">
                 <span className={`font-bold text-lg ${textColor}`} style={{ fontFamily: 'Playfair Display' }}>
                   Veracruz Contigo

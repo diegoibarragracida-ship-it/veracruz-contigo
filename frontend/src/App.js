@@ -12,6 +12,7 @@ import PrestadoresPage from "@/pages/PrestadoresPage";
 import EventosPage from "@/pages/EventosPage";
 import EmergenciaPage from "@/pages/EmergenciaPage";
 import GuiaPage from "@/pages/GuiaPage";
+import RutasPage from "@/pages/RutasPage";
 import LoginPage from "@/pages/LoginPage";
 import PerfilPage from "@/pages/PerfilPage";
 
@@ -203,6 +204,7 @@ function AppRouter() {
       <Route path="/eventos" element={<EventosPage />} />
       <Route path="/emergencia" element={<EmergenciaPage />} />
       <Route path="/guia" element={<GuiaPage />} />
+      <Route path="/rutas" element={<RutasPage />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/auth/callback" element={<AuthCallback />} />
 

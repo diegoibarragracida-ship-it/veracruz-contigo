@@ -1,9 +1,40 @@
 import { Link } from "react-router-dom";
 import { MapPin, Phone, Mail, Facebook, Instagram, Twitter } from "lucide-react";
 
+const GOV_LOGO = "https://static.prod-images.emergentagent.com/jobs/36d8b249-864b-4a0f-9434-3e429d7d03e6/images/f7bca6024f3f141223d1f59fac0f6dec0b92f4e7ad640dbd3c2bb8b967f962b9.png";
+const BRAND_LOGO = "https://static.prod-images.emergentagent.com/jobs/36d8b249-864b-4a0f-9434-3e429d7d03e6/images/b7f5d92f1cb466c306294ce71bbb5267834ee3326d062958c5a1682aa0968f13.png";
+
 const Footer = () => {
   return (
     <footer className="bg-[#1B5E20] text-white" data-testid="footer">
+      {/* Government Institutional Strip */}
+      <div className="bg-[#0D3B0F] border-b border-white/10">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+            <div className="flex items-center gap-4">
+              <img 
+                src={GOV_LOGO} 
+                alt="Escudo del Estado de Veracruz" 
+                className="h-16 w-auto"
+                data-testid="gov-logo-footer"
+              />
+              <div>
+                <p className="text-white font-semibold text-sm">Gobierno del Estado de Veracruz</p>
+                <p className="text-white/60 text-xs">Secretaría de Turismo y Cultura</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-4">
+              <img 
+                src={BRAND_LOGO} 
+                alt="Veracruz Contigo" 
+                className="h-14 w-auto"
+                data-testid="brand-logo-footer"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
           {/* Brand */}
@@ -55,6 +86,11 @@ const Footer = () => {
               <li>
                 <Link to="/prestadores" className="text-white/80 hover:text-white transition-colors">
                   Prestadores
+                </Link>
+              </li>
+              <li>
+                <Link to="/rutas" className="text-white/80 hover:text-white transition-colors">
+                  Rutas de Viaje
                 </Link>
               </li>
               <li>
@@ -117,9 +153,12 @@ const Footer = () => {
         {/* Bottom */}
         <div className="mt-12 pt-8 border-t border-white/20">
           <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-            <p className="text-white/60 text-sm text-center md:text-left">
-              © 2026 Veracruz Contigo. Gobierno del Estado de Veracruz. Todos los derechos reservados.
-            </p>
+            <div className="flex items-center gap-4">
+              <img src={GOV_LOGO} alt="Escudo de Veracruz" className="h-10 w-auto opacity-60" />
+              <p className="text-white/60 text-sm text-center md:text-left">
+                &copy; 2026 Veracruz Contigo. Gobierno del Estado de Veracruz. Todos los derechos reservados.
+              </p>
+            </div>
             <div className="flex items-center gap-2">
               <span className="text-white/60 text-sm">Por Amor a Veracruz</span>
             </div>

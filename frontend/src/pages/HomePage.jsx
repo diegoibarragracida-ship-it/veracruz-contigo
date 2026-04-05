@@ -47,6 +47,7 @@ const HomePage = () => {
 
   const quickLinks = [
     { href: "/explorar", label: "Explorar", icon: MapPin, color: "bg-[#1B5E20]" },
+    { href: "/rutas", label: "Rutas", icon: BookOpen, color: "bg-[#6A1B9A]" },
     { href: "/emergencia", label: "Emergencias", icon: ShieldAlert, color: "bg-[#D32F2F]" },
     { href: "/eventos", label: "Eventos", icon: Calendar, color: "bg-[#0277BD]" },
     { href: "/prestadores", label: "Prestadores", icon: Users, color: "bg-[#F9A825]" },
