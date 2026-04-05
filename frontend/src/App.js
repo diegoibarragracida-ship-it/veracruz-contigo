@@ -5,6 +5,7 @@ import axios from "axios";
 import { Toaster } from "@/components/ui/sonner";
 import { LanguageProvider } from "@/i18n/LanguageContext";
 import OnboardingModal from "@/components/OnboardingModal";
+import ChatBot from "@/components/ChatBot";
 
 // Pages
 import HomePage from "@/pages/HomePage";
@@ -284,6 +285,7 @@ function App() {
         <AuthProvider>
           <AppRouter />
           <OnboardingWrapper />
+          <ChatBot />
           <Toaster position="top-right" richColors />
         </AuthProvider>
       </LanguageProvider>

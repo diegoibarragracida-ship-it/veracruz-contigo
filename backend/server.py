@@ -2338,6 +2338,165 @@ async def track_search(request: Request):
     await db.analytics.insert_one(analytics_event)
     return {"status": "tracked"}
 
+# ============== CHATBOT ENDPOINT ==============
+
+from emergentintegrations.llm.chat import LlmChat, UserMessage
+
+EMERGENT_LLM_KEY = os.environ.get("EMERGENT_LLM_KEY")
+
+async def get_platform_context():
+    """Fetch real data from DB to give the AI context"""
+    try:
+        municipios_cursor = db.municipios.find(
+            {"estado": "publicado"},
+            {"_id": 0, "nombre": 1, "slug": 1, "region": 1, "pueblo_magico": 1, "descripcion": 1, "clima": 1, "altitud": 1, "que_hacer": 1}
+        ).limit(20)
+        municipios = await municipios_cursor.to_list(20)
+
+        eventos_cursor = db.eventos.find(
+            {"publicado": True},
+            {"_id": 0, "nombre": 1, "tipo": 1, "municipio_nombre": 1, "fecha_inicio": 1, "fecha_fin": 1, "descripcion": 1}
+        ).limit(10)
+        eventos = await eventos_cursor.to_list(10)
+
+        prestadores_cursor = db.prestadores.find(
+            {"verificado": True},
+            {"_id": 0, "nombre": 1, "tipo": 1, "municipio_nombre": 1, "descripcion": 1, "calificacion_promedio": 1}
+        ).limit(10)
+        prestadores = await prestadores_cursor.to_list(10)
+
+        context = "DATOS REALES DE LA PLATAFORMA:\n\n"
+        context += "MUNICIPIOS DESTACADOS:\n"
+        for m in municipios:
+            pm = " (Pueblo Mágico)" if m.get("pueblo_magico") else ""
+            desc = (m.get("descripcion") or "")[:150]
+            que = ", ".join(m.get("que_hacer", [])[:3]) if m.get("que_hacer") else ""
+            context += f"- {m['nombre']}{pm} | Región: {m.get('region','')} | Clima: {m.get('clima','')} | Altitud: {m.get('altitud','')} | {desc} | Qué hacer: {que}\n"
+
+        context += "\nEVENTOS PRÓXIMOS:\n"
+        for e in eventos:
+            context += f"- {e['nombre']} en {e.get('municipio_nombre','')} | Tipo: {e.get('tipo','')} | Fecha: {e.get('fecha_inicio','')}\n"
+
+        context += "\nPRESTADORES VERIFICADOS:\n"
+        for p in prestadores:
+            context += f"- {p['nombre']} ({p.get('tipo','')}) en {p.get('municipio_nombre','')} | Rating: {p.get('calificacion_promedio','N/A')}\n"
+
+        return context
+    except Exception as e:
+        logger.error(f"Error getting platform context: {e}")
+        return ""
+
+SYSTEM_MESSAGES = {
+    "es": """Eres el asistente turístico oficial de "Veracruz Contigo", la plataforma de turismo del Gobierno del Estado de Veracruz, México. Tu nombre es VeraCruz AI.
+
+REGLAS:
+- Responde SIEMPRE en español
+- Sé amable, entusiasta y conocedor de Veracruz
+- Usa los datos reales de la plataforma que se te proporcionan como contexto
+- Recomienda rutas de viaje: Escapada Express (3 días: Xalapa→Coatepec→Xico), Ruta Mágica (5 días por Pueblos Mágicos), Aventura Completa (7 días), Ruta Cultural (4 días)
+- Si preguntan sobre emergencias, menciona el botón de pánico con GPS disponible en la app
+- Respuestas cortas y útiles (máximo 3 párrafos)
+- No inventes información que no esté en el contexto
+- Si no sabes algo, sugiere visitar la sección correspondiente de la plataforma""",
+
+    "en": """You are the official tourism assistant of "Veracruz Contigo", the tourism platform of the Government of the State of Veracruz, Mexico. Your name is VeraCruz AI.
+
+RULES:
+- ALWAYS respond in English
+- Be friendly, enthusiastic and knowledgeable about Veracruz
+- Use the real platform data provided as context
+- Recommend travel routes: Express Getaway (3 days: Xalapa→Coatepec→Xico), Magic Route (5 days through Pueblos Mágicos), Complete Adventure (7 days), Cultural Route (4 days)
+- If asked about emergencies, mention the GPS panic button available in the app
+- Short and useful responses (maximum 3 paragraphs)
+- Don't invent information not in the context
+- If unsure, suggest visiting the corresponding section of the platform""",
+
+    "fr": """Vous êtes l'assistant touristique officiel de "Veracruz Contigo", la plateforme touristique du Gouvernement de l'État de Veracruz, Mexique. Votre nom est VeraCruz AI.
+
+RÈGLES:
+- Répondez TOUJOURS en français
+- Soyez aimable, enthousiaste et connaisseur de Veracruz
+- Utilisez les données réelles de la plateforme fournies comme contexte
+- Recommandez des itinéraires: Escapade Express (3 jours: Xalapa→Coatepec→Xico), Route Magique (5 jours), Aventure Complète (7 jours), Route Culturelle (4 jours)
+- Si on vous demande les urgences, mentionnez le bouton de panique GPS disponible dans l'app
+- Réponses courtes et utiles (maximum 3 paragraphes)
+- N'inventez pas d'informations absentes du contexte
+- En cas de doute, suggérez de visiter la section correspondante de la plateforme"""
+}
+
+@api_router.post("/chat")
+async def chat_endpoint(request: Request):
+    try:
+        body = await request.json()
+        message = body.get("message", "").strip()
+        session_id = body.get("session_id", "default")
+        lang = body.get("lang", "es")
+
+        if not message:
+            raise HTTPException(status_code=400, detail="Message is required")
+
+        if not EMERGENT_LLM_KEY:
+            raise HTTPException(status_code=500, detail="LLM key not configured")
+
+        # Store user message in DB
+        await db.chat_messages.insert_one({
+            "session_id": session_id,
+            "role": "user",
+            "content": message,
+            "lang": lang,
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        })
+
+        # Get platform context
+        platform_context = await get_platform_context()
+
+        # Get chat history for this session (last 10 messages)
+        history_cursor = db.chat_messages.find(
+            {"session_id": session_id},
+            {"_id": 0, "role": 1, "content": 1}
+        ).sort("timestamp", -1).limit(10)
+        history = await history_cursor.to_list(10)
+        history.reverse()
+
+        system_msg = SYSTEM_MESSAGES.get(lang, SYSTEM_MESSAGES["es"])
+        full_system = f"{system_msg}\n\n{platform_context}"
+
+        chat = LlmChat(
+            api_key=EMERGENT_LLM_KEY,
+            session_id=f"veracruz-{session_id}",
+            system_message=full_system
+        )
+        chat.with_model("openai", "gpt-5.2")
+
+        user_msg = UserMessage(text=message)
+        response = await chat.send_message(user_msg)
+
+        # Store assistant response in DB
+        await db.chat_messages.insert_one({
+            "session_id": session_id,
+            "role": "assistant",
+            "content": response,
+            "lang": lang,
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        })
+
+        return {"response": response, "session_id": session_id}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Chat error: {e}")
+        raise HTTPException(status_code=500, detail="Error processing chat message")
+
+@api_router.get("/chat/history/{session_id}")
+async def get_chat_history(session_id: str):
+    cursor = db.chat_messages.find(
+        {"session_id": session_id},
+        {"_id": 0, "role": 1, "content": 1, "timestamp": 1}
+    ).sort("timestamp", 1).limit(50)
+    messages = await cursor.to_list(50)
+    return {"messages": messages}
+
 # ============== HEALTH CHECK ==============
 
 @api_router.get("/health")
