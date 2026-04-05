@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import SearchBar from "./SearchBar";
 
-const GOV_LOGO = "https://static.prod-images.emergentagent.com/jobs/36d8b249-864b-4a0f-9434-3e429d7d03e6/images/f7bca6024f3f141223d1f59fac0f6dec0b92f4e7ad640dbd3c2bb8b967f962b9.png";
+const GOV_LOGO = "https://customer-assets.emergentagent.com/job_36d8b249-864b-4a0f-9434-3e429d7d03e6/artifacts/hwuns2om_image.png";
 
 const Header = () => {
   const [isScrolled, setIsScrolled] = useState(false);
@@ -63,17 +63,18 @@ const Header = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16 md:h-20">
             {/* Logo */}
-            <Link to="/" className="flex items-center gap-2" data-testid="logo-link">
+            <Link to="/" className="flex items-center gap-3" data-testid="logo-link">
               <img 
                 src={GOV_LOGO} 
-                alt="Escudo de Veracruz" 
-                className="h-9 w-auto"
+                alt="Gobierno del Estado de Veracruz - Por Amor a Veracruz" 
+                className="h-12 w-auto"
                 data-testid="gov-logo-header"
               />
-              <div className="hidden sm:block">
-                <span className={`font-bold text-lg ${textColor}`} style={{ fontFamily: 'Playfair Display' }}>
+              <div className="hidden md:block border-l border-current/20 pl-3">
+                <span className={`font-bold text-lg leading-tight block ${textColor}`} style={{ fontFamily: 'Playfair Display' }}>
                   Veracruz Contigo
                 </span>
+                <span className={`text-[10px] ${textColor} opacity-70`}>Plataforma de Turismo</span>
               </div>
             </Link>
 

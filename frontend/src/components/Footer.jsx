@@ -1,36 +1,21 @@
 import { Link } from "react-router-dom";
 import { MapPin, Phone, Mail, Facebook, Instagram, Twitter } from "lucide-react";
 
-const GOV_LOGO = "https://static.prod-images.emergentagent.com/jobs/36d8b249-864b-4a0f-9434-3e429d7d03e6/images/f7bca6024f3f141223d1f59fac0f6dec0b92f4e7ad640dbd3c2bb8b967f962b9.png";
-const BRAND_LOGO = "https://static.prod-images.emergentagent.com/jobs/36d8b249-864b-4a0f-9434-3e429d7d03e6/images/b7f5d92f1cb466c306294ce71bbb5267834ee3326d062958c5a1682aa0968f13.png";
+const GOV_LOGO = "https://customer-assets.emergentagent.com/job_36d8b249-864b-4a0f-9434-3e429d7d03e6/artifacts/hwuns2om_image.png";
 
 const Footer = () => {
   return (
     <footer className="bg-[#1B5E20] text-white" data-testid="footer">
       {/* Government Institutional Strip */}
-      <div className="bg-[#0D3B0F] border-b border-white/10">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-            <div className="flex items-center gap-4">
-              <img 
-                src={GOV_LOGO} 
-                alt="Escudo del Estado de Veracruz" 
-                className="h-16 w-auto"
-                data-testid="gov-logo-footer"
-              />
-              <div>
-                <p className="text-white font-semibold text-sm">Gobierno del Estado de Veracruz</p>
-                <p className="text-white/60 text-xs">Secretaría de Turismo y Cultura</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-4">
-              <img 
-                src={BRAND_LOGO} 
-                alt="Veracruz Contigo" 
-                className="h-14 w-auto"
-                data-testid="brand-logo-footer"
-              />
-            </div>
+      <div className="bg-[#1a1a1a]">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5">
+          <div className="flex items-center justify-center">
+            <img 
+              src={GOV_LOGO} 
+              alt="Gobierno del Estado de Veracruz 2024-2030 | Por Amor a Veracruz" 
+              className="h-20 md:h-24 w-auto"
+              data-testid="gov-logo-footer"
+            />
           </div>
         </div>
       </div>
@@ -153,14 +138,11 @@ const Footer = () => {
         {/* Bottom */}
         <div className="mt-12 pt-8 border-t border-white/20">
           <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-            <div className="flex items-center gap-4">
-              <img src={GOV_LOGO} alt="Escudo de Veracruz" className="h-10 w-auto opacity-60" />
-              <p className="text-white/60 text-sm text-center md:text-left">
-                &copy; 2026 Veracruz Contigo. Gobierno del Estado de Veracruz. Todos los derechos reservados.
-              </p>
-            </div>
+            <p className="text-white/60 text-sm text-center md:text-left">
+              &copy; 2026 Veracruz Contigo. Gobierno del Estado de Veracruz 2024-2030. Todos los derechos reservados.
+            </p>
             <div className="flex items-center gap-2">
-              <span className="text-white/60 text-sm">Por Amor a Veracruz</span>
+              <span className="text-white/60 text-sm font-medium">Por Amor a Veracruz</span>
             </div>
           </div>
         </div>
