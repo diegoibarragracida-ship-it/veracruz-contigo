@@ -277,14 +277,14 @@ const HomePage = () => {
               <div>
                 <div className="flex items-center gap-2 mb-2">
                   <MapPin className="w-6 h-6 text-[#1B5E20]" />
-                  <span className="text-[#1B5E20] font-semibold uppercase tracking-wider text-sm">232 municipios</span>
+                  <span className="text-[#1B5E20] font-semibold uppercase tracking-wider text-sm">{t("sections.municipalities")}</span>
                 </div>
                 <h2 className="text-3xl sm:text-4xl font-bold text-gray-900" style={{ fontFamily: 'Playfair Display' }}>
-                  Explora Veracruz
+                  {t("sections.exploreVeracruz")}
                 </h2>
               </div>
               <Link to="/explorar" className="hidden md:flex items-center gap-2 text-[#1B5E20] font-medium hover:underline">
-                Ver todos
+                {t("sections.viewAll")}
                 <ChevronRight className="w-5 h-5" />
               </Link>
             </div>

@@ -151,6 +151,19 @@ Sistema multi-rol con 4 niveles de usuarios para gestionar información turísti
 - Cada ruta con itinerario día a día, actividades, tips y enlaces a municipios
 - Enlace "Rutas" en navegación principal y homepage
 
+### 05/04/2026 - i18n (3 idiomas) + Onboarding + Clima v1.4
+- Sistema de internacionalización completo: Español, Inglés, Francés
+- Selector de idioma (globe icon) en Header con dropdown
+- Preferencia guardada en localStorage
+- Traducciones: Hero, navegación, botones, secciones, clima, footer, rutas tips
+- Tarjetas de clima: Xalapa (18°C), Veracruz (29°C), Orizaba (20°C), Coatepec (17°C)
+- Onboarding por rol al primer login:
+  - Turista: Explora, favoritos, botón de pánico, rutas
+  - Encargado: Completa perfil, sube fotos, crea eventos, estadísticas
+  - Prestador: Completa perfil, verificación, reseñas, actualizar info
+- Modal stepper con 4 pasos, indicadores, Siguiente/Omitir/Entendido
+- Fix: removeChild error en Header (fragment → div)
+
 ### Integraciones
 - **Google OAuth:** Via Emergent Auth
 - **Object Storage:** Emergent Object Storage
