@@ -35,11 +35,12 @@ Sistema multi-rol con 4 niveles de usuarios para gestionar información turísti
 - Sube fotos, videos, eventos
 - Propone prestadores para verificación
 - Ve estadísticas de su municipio
+- Recibe notificaciones de pico de interés
 
 ### 3. Prestador de Servicios
 - Perfil verificado por Super Admin
 - Gestiona su información de negocio
-- Badge "✓ Prestador Verificado"
+- Badge "Prestador Verificado"
 
 ### 4. Turista
 - Login con Google OAuth
@@ -48,9 +49,9 @@ Sistema multi-rol con 4 niveles de usuarios para gestionar información turísti
 
 ---
 
-## Core Requirements (Estáticos)
+## Core Requirements
 
-### Funcionalidades Implementadas ✅
+### Funcionalidades Implementadas
 1. **Sistema de Autenticación**
    - JWT para admin/encargados/prestadores
    - Google OAuth 2.0 (Emergent Auth) para turistas
@@ -67,7 +68,7 @@ Sistema multi-rol con 4 niveles de usuarios para gestionar información turísti
    - Calificaciones y reseñas
 
 4. **Eventos**
-   - 5 eventos de ejemplo precargados
+   - 5 eventos de ejemplo precargados + 2 de Orizaba
    - Filtros por tipo y municipio
 
 5. **Sistema de Alertas**
@@ -88,35 +89,56 @@ Sistema multi-rol con 4 niveles de usuarios para gestionar información turísti
    - Gestión de usuarios
    - Cola de aprobación de prestadores
 
+9. **Sistema de Analíticas**
+   - Tracking de vistas, contactos, búsquedas
+   - Dashboard global (Super Admin)
+   - Dashboard por municipio (Encargados)
+
+10. **Fotos Reales y Datos de Orizaba**
+    - 9 municipios principales con fotos de portada reales
+    - Orizaba con datos completos (descripcion, historia, que_hacer, clima, etc.)
+    - 4 prestadores verificados para Orizaba
+    - 2 eventos para Orizaba
+    - Cuenta de encargado preconfigurada
+
+11. **Notificaciones de Pico de Interés**
+    - Backend: detección de picos (>50% aumento en vistas)
+    - API: GET /notifications, PUT /notifications/{id}/read
+    - UI: Campana con badge en panel de encargado
+    - Panel desplegable con lista de notificaciones
+
 ---
 
-## Lo Implementado (Historial)
+## Historial de Implementación
 
 ### 05/04/2026 - MVP v1.0
-- ✅ Backend completo con FastAPI
-- ✅ Frontend React con todas las páginas públicas
-- ✅ Sistema de autenticación dual (JWT + Google OAuth)
-- ✅ Seed de 199 municipios únicos
-- ✅ 9 Pueblos Mágicos configurados
-- ✅ 5 eventos de ejemplo
-- ✅ 4 prestadores de ejemplo verificados
-- ✅ Panel Super Admin completo
-- ✅ Panel Encargado Municipal
-- ✅ Panel Prestador
-- ✅ Página de emergencias con botón de pánico
-- ✅ Buscador global funcional
-- ✅ Object Storage de Emergent integrado
+- Backend completo con FastAPI
+- Frontend React con todas las páginas públicas
+- Sistema de autenticación dual (JWT + Google OAuth)
+- Seed de 199 municipios únicos
+- 9 Pueblos Mágicos configurados
+- 5 eventos de ejemplo
+- 4 prestadores de ejemplo verificados
+- Panel Super Admin completo
+- Panel Encargado Municipal
+- Panel Prestador
+- Página de emergencias con botón de pánico
+- Buscador global funcional
+- Object Storage de Emergent integrado
 
 ### 05/04/2026 - Sistema de Analíticas v1.1
-- ✅ Tracking de vistas de municipios
-- ✅ Tracking de contactos a prestadores (WhatsApp/teléfono)
-- ✅ Tracking de búsquedas
-- ✅ Dashboard de analíticas globales (Super Admin)
-- ✅ Dashboard de analíticas por municipio (Encargados)
-- ✅ Top municipios más visitados
-- ✅ Top prestadores más contactados
-- ✅ Términos de búsqueda más populares
-- ✅ Gráfica de vistas por día
+- Tracking de vistas de municipios
+- Tracking de contactos a prestadores
+- Tracking de búsquedas
+- Dashboard de analíticas globales y por municipio
+- Top municipios/prestadores/búsquedas
+
+### 05/04/2026 - Fotos Reales + Orizaba + Notificaciones v1.2
+- 9 municipios con fotos reales de portada
+- Orizaba completamente configurado (como si el encargado ya lo hubiera hecho)
+- Encargado Orizaba: encargado.orizaba@veracruzcontigo.gob.mx
+- 4 prestadores y 2 eventos para Orizaba
+- Sistema de notificaciones de pico de interés (backend + UI)
 
 ### Integraciones
 - **Google OAuth:** Via Emergent Auth
@@ -128,28 +150,25 @@ Sistema multi-rol con 4 niveles de usuarios para gestionar información turísti
 
 ## Backlog Priorizado
 
-### P0 - Crítico (Próxima fase)
-- [ ] Integrar Google Maps API (GOOGLE_MAPS_API_KEY)
-- [ ] Configurar SMTP para emails reales
-- [ ] PWA: manifest.json y Service Worker
-
 ### P1 - Alto
-- [ ] Sistema de estadísticas por municipio
-- [ ] Upload de imágenes funcional en panel encargado
-- [ ] Creación de eventos desde panel encargado
-- [ ] Sistema de reportes de prestadores
+- [ ] PWA: manifest.json y Service Worker para instalación offline
+- [ ] Google Maps API real con clustering y filtros
+- [ ] Object Storage: upload funcional de imágenes desde paneles
+- [ ] Sistema completo de Rating & Reviews para prestadores
 
 ### P2 - Medio
+- [ ] Exportar reportes PDF/Excel de analíticas
 - [ ] Mapa interactivo con pins personalizados
-- [ ] Historial de emergencias para turistas
 - [ ] Notificaciones en tiempo real (WebSocket)
-- [ ] Ordenar fotos por drag & drop
+- [ ] Historial de emergencias para turistas
+- [ ] Configurar SMTP para emails reales
 
 ### P3 - Bajo
 - [ ] SEO dinámico por municipio
 - [ ] Open Graph images
 - [ ] Sitemap.xml
 - [ ] PWA offline mode
+- [ ] Drag & drop para ordenar fotos
 
 ---
 
@@ -159,6 +178,10 @@ Sistema multi-rol con 4 niveles de usuarios para gestionar información turísti
 Super Admin:
 Email: superadmin@veracruzcontigo.gob.mx
 Password: VeracruzAdmin2024!
+
+Encargado Orizaba:
+Email: encargado.orizaba@veracruzcontigo.gob.mx
+Password: Orizaba2024!
 
 Turista:
 Login con Google (Emergent OAuth)
@@ -181,6 +204,9 @@ GET  /search?q=           - Búsqueda global
 POST /auth/login          - Login JWT
 POST /auth/session        - OAuth callback
 GET  /admin/stats         - Stats (admin)
+GET  /notifications       - Notificaciones del usuario
+PUT  /notifications/:id/read - Marcar como leída
+POST /admin/check-spikes  - Disparar detección de picos
 ```
 
 ---
@@ -190,15 +216,18 @@ GET  /admin/stats         - Stats (admin)
 ```
 /app/
 ├── backend/
-│   ├── server.py         # API FastAPI completa
+│   ├── server.py         # API FastAPI completa (~2400 líneas)
+│   ├── tests/            # Tests pytest
 │   └── .env              # Variables de entorno
 ├── frontend/
 │   ├── src/
 │   │   ├── App.js        # Router y Auth Context
 │   │   ├── pages/        # Páginas públicas y admin
-│   │   └── components/   # Componentes reutilizables
+│   │   ├── components/   # Componentes reutilizables
+│   │   └── hooks/        # useAnalytics.js
 │   └── .env              # REACT_APP_BACKEND_URL
-└── memory/
-    ├── PRD.md            # Este documento
-    └── test_credentials.md
+├── memory/
+│   ├── PRD.md            # Este documento
+│   └── test_credentials.md
+└── test_reports/         # Reportes de testing
 ```
