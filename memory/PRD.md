@@ -107,6 +107,17 @@ Sistema multi-rol con 4 niveles de usuarios para gestionar información turísti
 - ✅ Buscador global funcional
 - ✅ Object Storage de Emergent integrado
 
+### 05/04/2026 - Sistema de Analíticas v1.1
+- ✅ Tracking de vistas de municipios
+- ✅ Tracking de contactos a prestadores (WhatsApp/teléfono)
+- ✅ Tracking de búsquedas
+- ✅ Dashboard de analíticas globales (Super Admin)
+- ✅ Dashboard de analíticas por municipio (Encargados)
+- ✅ Top municipios más visitados
+- ✅ Top prestadores más contactados
+- ✅ Términos de búsqueda más populares
+- ✅ Gráfica de vistas por día
+
 ### Integraciones
 - **Google OAuth:** Via Emergent Auth
 - **Object Storage:** Emergent Object Storage
