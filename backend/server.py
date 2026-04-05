@@ -1698,6 +1698,269 @@ async def global_search(q: str, limit: int = 10):
     
     return {"municipios": municipios, "eventos": eventos, "prestadores": prestadores}
 
+# ============== ANALYTICS ENDPOINTS ==============
+
+@api_router.post("/analytics/track")
+async def track_event(request: Request):
+    """Track user interactions for analytics"""
+    body = await request.json()
+    event_type = body.get("event_type")  # view, click, search, contact
+    target_type = body.get("target_type")  # municipio, prestador, evento
+    target_id = body.get("target_id")
+    
+    if not all([event_type, target_type, target_id]):
+        raise HTTPException(status_code=400, detail="Missing required fields")
+    
+    # Get optional user info
+    user = await get_optional_user(request)
+    
+    analytics_event = {
+        "id": str(uuid.uuid4()),
+        "event_type": event_type,
+        "target_type": target_type,
+        "target_id": target_id,
+        "user_id": user["user_id"] if user else None,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "date": datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    }
+    
+    await db.analytics.insert_one(analytics_event)
+    
+    # Update counters based on event type
+    if event_type == "view":
+        if target_type == "municipio":
+            await db.municipios.update_one({"id": target_id}, {"$inc": {"visitas_total": 1}})
+        elif target_type == "prestador":
+            await db.prestadores.update_one({"id": target_id}, {"$inc": {"vistas_total": 1}})
+    elif event_type == "contact" and target_type == "prestador":
+        await db.prestadores.update_one({"id": target_id}, {"$inc": {"contactos_total": 1}})
+    
+    return {"status": "tracked"}
+
+@api_router.get("/analytics/municipio/{municipio_id}")
+async def get_municipio_analytics(municipio_id: str, request: Request, days: int = 30):
+    """Get analytics for a specific municipio"""
+    user = await get_current_user(request)
+    
+    # Check permissions
+    municipio = await db.municipios.find_one({"id": municipio_id}, {"_id": 0})
+    if not municipio:
+        raise HTTPException(status_code=404, detail="Municipio no encontrado")
+    
+    if user["rol"] == "encargado" and municipio.get("encargado_id") != user["user_id"]:
+        raise HTTPException(status_code=403, detail="No tienes permiso")
+    elif user["rol"] not in ["superadmin", "encargado"]:
+        raise HTTPException(status_code=403, detail="No tienes permiso")
+    
+    # Calculate date range
+    end_date = datetime.now(timezone.utc)
+    start_date = end_date - timedelta(days=days)
+    
+    # Get view stats
+    views_pipeline = [
+        {
+            "$match": {
+                "target_type": "municipio",
+                "target_id": municipio_id,
+                "event_type": "view",
+                "timestamp": {"$gte": start_date.isoformat()}
+            }
+        },
+        {
+            "$group": {
+                "_id": "$date",
+                "count": {"$sum": 1}
+            }
+        },
+        {"$sort": {"_id": 1}}
+    ]
+    
+    views_by_day = await db.analytics.aggregate(views_pipeline).to_list(100)
+    
+    # Get prestador stats for this municipio
+    prestadores = await db.prestadores.find(
+        {"municipio_id": municipio_id, "verificado": True},
+        {"_id": 0, "id": 1, "nombre": 1, "tipo": 1, "vistas_total": 1, "contactos_total": 1}
+    ).to_list(100)
+    
+    # Get event stats
+    eventos = await db.eventos.find(
+        {"municipio_id": municipio_id},
+        {"_id": 0, "id": 1, "nombre": 1, "tipo": 1}
+    ).to_list(100)
+    
+    # Get total counts
+    total_views = await db.analytics.count_documents({
+        "target_type": "municipio",
+        "target_id": municipio_id,
+        "event_type": "view",
+        "timestamp": {"$gte": start_date.isoformat()}
+    })
+    
+    # Get search terms that found this municipio
+    search_events = await db.analytics.find(
+        {
+            "target_type": "municipio",
+            "target_id": municipio_id,
+            "event_type": "search"
+        },
+        {"_id": 0}
+    ).limit(50).to_list(50)
+    
+    return {
+        "municipio_id": municipio_id,
+        "municipio_nombre": municipio["nombre"],
+        "period_days": days,
+        "total_views": total_views,
+        "views_by_day": views_by_day,
+        "prestadores": sorted(prestadores, key=lambda x: x.get("contactos_total", 0), reverse=True),
+        "eventos_count": len(eventos),
+        "top_prestadores": sorted(prestadores, key=lambda x: x.get("vistas_total", 0), reverse=True)[:5]
+    }
+
+@api_router.get("/analytics/global")
+async def get_global_analytics(request: Request, days: int = 30):
+    """Get global platform analytics (Super Admin only)"""
+    user = await get_current_user(request)
+    if user["rol"] != "superadmin":
+        raise HTTPException(status_code=403, detail="Solo Super Admin")
+    
+    end_date = datetime.now(timezone.utc)
+    start_date = end_date - timedelta(days=days)
+    
+    # Top municipios by views
+    top_municipios_pipeline = [
+        {
+            "$match": {
+                "target_type": "municipio",
+                "event_type": "view",
+                "timestamp": {"$gte": start_date.isoformat()}
+            }
+        },
+        {
+            "$group": {
+                "_id": "$target_id",
+                "views": {"$sum": 1}
+            }
+        },
+        {"$sort": {"views": -1}},
+        {"$limit": 10}
+    ]
+    
+    top_municipios_raw = await db.analytics.aggregate(top_municipios_pipeline).to_list(10)
+    
+    # Enrich with municipio names
+    top_municipios = []
+    for item in top_municipios_raw:
+        mun = await db.municipios.find_one({"id": item["_id"]}, {"_id": 0, "nombre": 1, "slug": 1, "pueblo_magico": 1})
+        if mun:
+            top_municipios.append({
+                "id": item["_id"],
+                "nombre": mun["nombre"],
+                "slug": mun["slug"],
+                "pueblo_magico": mun.get("pueblo_magico", False),
+                "views": item["views"]
+            })
+    
+    # Top prestadores by contacts
+    top_prestadores = await db.prestadores.find(
+        {"verificado": True, "activo": True},
+        {"_id": 0, "id": 1, "nombre": 1, "tipo": 1, "contactos_total": 1, "vistas_total": 1}
+    ).sort("contactos_total", -1).limit(10).to_list(10)
+    
+    # Views over time
+    views_pipeline = [
+        {
+            "$match": {
+                "event_type": "view",
+                "timestamp": {"$gte": start_date.isoformat()}
+            }
+        },
+        {
+            "$group": {
+                "_id": "$date",
+                "count": {"$sum": 1}
+            }
+        },
+        {"$sort": {"_id": 1}}
+    ]
+    
+    views_by_day = await db.analytics.aggregate(views_pipeline).to_list(100)
+    
+    # Search terms
+    search_pipeline = [
+        {
+            "$match": {
+                "event_type": "search",
+                "timestamp": {"$gte": start_date.isoformat()}
+            }
+        },
+        {
+            "$group": {
+                "_id": "$search_term",
+                "count": {"$sum": 1}
+            }
+        },
+        {"$sort": {"count": -1}},
+        {"$limit": 20}
+    ]
+    
+    top_searches = await db.analytics.aggregate(search_pipeline).to_list(20)
+    
+    # Total counts
+    total_views = await db.analytics.count_documents({
+        "event_type": "view",
+        "timestamp": {"$gte": start_date.isoformat()}
+    })
+    
+    total_contacts = await db.analytics.count_documents({
+        "event_type": "contact",
+        "timestamp": {"$gte": start_date.isoformat()}
+    })
+    
+    total_searches = await db.analytics.count_documents({
+        "event_type": "search",
+        "timestamp": {"$gte": start_date.isoformat()}
+    })
+    
+    return {
+        "period_days": days,
+        "totals": {
+            "views": total_views,
+            "contacts": total_contacts,
+            "searches": total_searches
+        },
+        "top_municipios": top_municipios,
+        "top_prestadores": top_prestadores,
+        "views_by_day": views_by_day,
+        "top_searches": top_searches
+    }
+
+@api_router.post("/analytics/search")
+async def track_search(request: Request):
+    """Track search queries"""
+    body = await request.json()
+    search_term = body.get("term", "").strip()
+    
+    if not search_term or len(search_term) < 2:
+        return {"status": "ignored"}
+    
+    user = await get_optional_user(request)
+    
+    analytics_event = {
+        "id": str(uuid.uuid4()),
+        "event_type": "search",
+        "search_term": search_term.lower(),
+        "target_type": "search",
+        "target_id": None,
+        "user_id": user["user_id"] if user else None,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "date": datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    }
+    
+    await db.analytics.insert_one(analytics_event)
+    return {"status": "tracked"}
+
 # ============== HEALTH CHECK ==============
 
 @api_router.get("/health")
@@ -1741,6 +2004,8 @@ async def startup_event():
     await db.prestadores.create_index("municipio_id")
     await db.eventos.create_index("fecha_inicio")
     await db.emergencias.create_index("timestamp")
+    await db.analytics.create_index([("target_type", 1), ("target_id", 1), ("timestamp", -1)])
+    await db.analytics.create_index([("event_type", 1), ("date", 1)])
     
     logger.info("Veracruz Contigo API ready!")
 

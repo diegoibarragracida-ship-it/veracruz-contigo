@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import { API } from "@/App";
+import useAnalytics from "@/hooks/useAnalytics";
 import { Search, MapPin, Calendar, Users, X, Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 
@@ -11,6 +12,7 @@ const SearchBar = ({ onClose, variant = "default" }) => {
   const [loading, setLoading] = useState(false);
   const [showResults, setShowResults] = useState(false);
   const navigate = useNavigate();
+  const { trackSearch } = useAnalytics();
   const inputRef = useRef(null);
   const debounceRef = useRef(null);
 
@@ -37,6 +39,8 @@ const SearchBar = ({ onClose, variant = "default" }) => {
         const response = await axios.get(`${API}/search`, { params: { q: query } });
         setResults(response.data);
         setShowResults(true);
+        // Track search after getting results
+        trackSearch(query);
       } catch (error) {
         console.error("Search error:", error);
       } finally {

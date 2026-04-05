@@ -7,6 +7,7 @@ import Footer from "@/components/Footer";
 import PrestadorCard from "@/components/PrestadorCard";
 import EventoCard from "@/components/EventoCard";
 import PanicButton from "@/components/PanicButton";
+import useAnalytics from "@/hooks/useAnalytics";
 import { MapPin, Star, Heart, Share2, ArrowLeft, Camera, Video, Users, Calendar, Navigation, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -15,6 +16,7 @@ import { toast } from "sonner";
 const MunicipioPage = () => {
   const { slug } = useParams();
   const { isAuthenticated } = useAuth();
+  const { trackView } = useAnalytics();
   const [municipio, setMunicipio] = useState(null);
   const [prestadores, setPrestadores] = useState([]);
   const [eventos, setEventos] = useState([]);
@@ -30,6 +32,11 @@ const MunicipioPage = () => {
         ]);
         
         setMunicipio(munRes.data);
+        
+        // Track view
+        if (munRes.data.id) {
+          trackView("municipio", munRes.data.id);
+        }
         
         // Fetch related data
         if (munRes.data.id) {

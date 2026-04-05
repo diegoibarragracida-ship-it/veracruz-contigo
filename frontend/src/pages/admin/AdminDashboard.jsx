@@ -5,7 +5,7 @@ import { API, useAuth } from "@/App";
 import { 
   LayoutDashboard, MapPin, Users, Calendar, AlertTriangle, ShieldAlert, 
   Settings, LogOut, Menu, X, Plus, Check, XCircle, Eye, ChevronRight,
-  Loader2, UserPlus, Bell
+  Loader2, UserPlus, Bell, BarChart3
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,6 +16,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
+import AnalyticsDashboard from "@/components/AnalyticsDashboard";
 
 const AdminDashboard = () => {
   const { user, logout } = useAuth();
@@ -25,6 +26,7 @@ const AdminDashboard = () => {
 
   const navItems = [
     { path: "/admin", label: "Dashboard", icon: LayoutDashboard },
+    { path: "/admin/analytics", label: "Analíticas", icon: BarChart3 },
     { path: "/admin/municipios", label: "Municipios", icon: MapPin },
     { path: "/admin/prestadores", label: "Prestadores", icon: Users },
     { path: "/admin/eventos", label: "Eventos", icon: Calendar },
@@ -110,6 +112,7 @@ const AdminDashboard = () => {
         <main className="p-6">
           <Routes>
             <Route index element={<DashboardHome />} />
+            <Route path="analytics" element={<AnalyticsDashboard isGlobal={true} />} />
             <Route path="municipios" element={<MunicipiosAdmin />} />
             <Route path="prestadores" element={<PrestadoresAdmin />} />
             <Route path="eventos" element={<EventosAdmin />} />

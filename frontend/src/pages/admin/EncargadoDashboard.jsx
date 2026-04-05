@@ -4,7 +4,7 @@ import axios from "axios";
 import { API, useAuth } from "@/App";
 import { 
   LayoutDashboard, MapPin, Camera, Calendar, Users, LogOut, 
-  Save, Eye, Loader2, Plus, Trash2, Upload
+  Save, Eye, Loader2, Plus, Trash2, Upload, BarChart3
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,6 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
+import AnalyticsDashboard from "@/components/AnalyticsDashboard";
 
 const EncargadoDashboard = () => {
   const { user, logout } = useAuth();
@@ -155,6 +156,10 @@ const EncargadoDashboard = () => {
             <TabsTrigger value="prestadores" className="rounded-lg">
               <Users className="w-4 h-4 mr-2" />
               Prestadores
+            </TabsTrigger>
+            <TabsTrigger value="estadisticas" className="rounded-lg">
+              <BarChart3 className="w-4 h-4 mr-2" />
+              Estadísticas
             </TabsTrigger>
           </TabsList>
 
@@ -369,6 +374,11 @@ const EncargadoDashboard = () => {
                 <p className="text-sm text-gray-400 mt-1">Propón prestadores de servicios de tu zona</p>
               </div>
             </div>
+          </TabsContent>
+
+          {/* Estadísticas Tab */}
+          <TabsContent value="estadisticas">
+            <AnalyticsDashboard municipioId={municipio.id} isGlobal={false} />
           </TabsContent>
         </Tabs>
       </main>

@@ -1,8 +1,9 @@
-import { Link } from "react-router-dom";
 import { Phone, MessageCircle, MapPin, Star, BadgeCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import useAnalytics from "@/hooks/useAnalytics";
 
 const PrestadorCard = ({ prestador }) => {
+  const { trackContact } = useAnalytics();
   const defaultImage = "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=400&q=85";
   
   const tipoColors = {
@@ -18,6 +19,7 @@ const PrestadorCard = ({ prestador }) => {
     e.preventDefault();
     e.stopPropagation();
     if (prestador.whatsapp) {
+      trackContact(prestador.id);
       window.open(`https://wa.me/${prestador.whatsapp}`, "_blank");
     }
   };
@@ -26,6 +28,7 @@ const PrestadorCard = ({ prestador }) => {
     e.preventDefault();
     e.stopPropagation();
     if (prestador.telefono) {
+      trackContact(prestador.id);
       window.location.href = `tel:${prestador.telefono}`;
     }
   };

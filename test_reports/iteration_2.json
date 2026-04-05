@@ -1,0 +1,35 @@
+{
+  "summary": "Completed comprehensive backend testing of analytics system for Veracruz Contigo. All analytics endpoints are working correctly with proper authentication and data tracking.",
+  "backend_issues": {
+    "critical_bugs": [],
+    "flaky_endpoints": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "passed_tests": [
+    "Analytics track endpoint - POST /api/analytics/track with valid and invalid data",
+    "Analytics search tracking - POST /api/analytics/search with various term lengths",
+    "Global analytics dashboard - GET /api/analytics/global with admin authentication",
+    "Municipio analytics - GET /api/analytics/municipio/{id} with admin authentication",
+    "Analytics integration flow - Complete tracking and verification workflow",
+    "Authentication and authorization for analytics endpoints",
+    "Data structure validation for analytics responses",
+    "Error handling for invalid requests and unauthorized access"
+  ],
+  "test_report_links": [
+    "/app/backend_test.py"
+  ],
+  "action_item_for_main_agent": "",
+  "updated_files": [
+    "/app/backend_test.py"
+  ],
+  "success_percentage": {
+    "backend": "100% (20/20 tests passed)",
+    "frontend": "Not tested (backend only as requested)"
+  },
+  "should_call_test_agent_after_fix": "false",
+  "should_main_agent_test_itself": "true"
+}
