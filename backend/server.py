@@ -2373,6 +2373,7 @@ async def startup_event():
     await seed_admin()
     await seed_sample_events()
     await seed_sample_prestadores()
+    await seed_municipio_photos_and_content()
     
     # Create indexes
     await db.usuarios.create_index("email", unique=True)

@@ -1,10 +1,11 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import axios from "axios";
 import { API, useAuth } from "@/App";
 import { 
   LayoutDashboard, MapPin, Camera, Calendar, Users, LogOut, 
-  Save, Eye, Loader2, Plus, Trash2, Upload, BarChart3
+  Save, Eye, Loader2, Plus, Trash2, Upload, BarChart3,
+  Bell, TrendingUp, Check, X
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,6 +22,34 @@ const EncargadoDashboard = () => {
   const [municipio, setMunicipio] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [notifications, setNotifications] = useState([]);
+  const [showNotifications, setShowNotifications] = useState(false);
+
+  const fetchNotifications = useCallback(async () => {
+    try {
+      const res = await axios.get(`${API}/notifications`);
+      setNotifications(res.data || []);
+    } catch (err) {
+      // silently ignore
+    }
+  }, []);
+
+  const markAsRead = async (notifId) => {
+    try {
+      await axios.put(`${API}/notifications/${notifId}/read`);
+      setNotifications(prev => prev.map(n => n.id === notifId ? { ...n, leida: true } : n));
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const markAllRead = async () => {
+    const unread = notifications.filter(n => !n.leida);
+    await Promise.all(unread.map(n => axios.put(`${API}/notifications/${n.id}/read`)));
+    setNotifications(prev => prev.map(n => ({ ...n, leida: true })));
+  };
+
+  const unreadCount = notifications.filter(n => !n.leida).length;
 
   useEffect(() => {
     const fetchMunicipio = async () => {
@@ -43,6 +72,12 @@ const EncargadoDashboard = () => {
     };
     fetchMunicipio();
   }, [user?.municipio_id]);
+
+  useEffect(() => {
+    fetchNotifications();
+    const interval = setInterval(fetchNotifications, 60000);
+    return () => clearInterval(interval);
+  }, [fetchNotifications]);
 
   const handleSave = async (publish = false) => {
     if (!municipio) return;
@@ -123,6 +158,86 @@ const EncargadoDashboard = () => {
                 Ver público
               </Button>
             </Link>
+            
+            {/* Notifications Bell */}
+            <div className="relative">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setShowNotifications(!showNotifications)}
+                data-testid="notifications-bell"
+                className="relative"
+              >
+                <Bell className="w-5 h-5" />
+                {unreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-bold">
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </span>
+                )}
+              </Button>
+              
+              {showNotifications && (
+                <div className="absolute right-0 top-12 w-96 bg-white rounded-xl shadow-2xl border z-50 overflow-hidden" data-testid="notifications-panel">
+                  <div className="px-4 py-3 border-b bg-gray-50 flex items-center justify-between">
+                    <h3 className="font-semibold text-sm text-gray-900">Notificaciones</h3>
+                    <div className="flex items-center gap-2">
+                      {unreadCount > 0 && (
+                        <button
+                          onClick={markAllRead}
+                          className="text-xs text-[#1B5E20] font-medium hover:underline"
+                        >
+                          Marcar todas como leídas
+                        </button>
+                      )}
+                      <button onClick={() => setShowNotifications(false)}>
+                        <X className="w-4 h-4 text-gray-400" />
+                      </button>
+                    </div>
+                  </div>
+                  
+                  <div className="max-h-80 overflow-y-auto">
+                    {notifications.length === 0 ? (
+                      <div className="py-8 text-center text-gray-400">
+                        <Bell className="w-8 h-8 mx-auto mb-2 opacity-40" />
+                        <p className="text-sm">Sin notificaciones</p>
+                      </div>
+                    ) : (
+                      notifications.map(notif => (
+                        <div
+                          key={notif.id}
+                          className={`px-4 py-3 border-b last:border-0 cursor-pointer hover:bg-gray-50 transition-colors ${
+                            !notif.leida ? 'bg-[#1B5E20]/5' : ''
+                          }`}
+                          onClick={() => !notif.leida && markAsRead(notif.id)}
+                          data-testid={`notification-item-${notif.id}`}
+                        >
+                          <div className="flex items-start gap-3">
+                            <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
+                              notif.tipo === 'spike' ? 'bg-orange-100 text-orange-600' : 'bg-blue-100 text-blue-600'
+                            }`}>
+                              <TrendingUp className="w-4 h-4" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className={`text-sm ${!notif.leida ? 'font-semibold text-gray-900' : 'text-gray-700'}`}>
+                                {notif.titulo}
+                              </p>
+                              <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">{notif.mensaje}</p>
+                              <p className="text-xs text-gray-400 mt-1">
+                                {new Date(notif.fecha).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                              </p>
+                            </div>
+                            {!notif.leida && (
+                              <span className="w-2 h-2 bg-[#1B5E20] rounded-full flex-shrink-0 mt-2" />
+                            )}
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+            
             <Button onClick={() => handleSave(false)} disabled={saving} variant="outline" size="sm">
               {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
               Guardar borrador
