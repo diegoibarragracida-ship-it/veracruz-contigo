@@ -2339,8 +2339,7 @@ async def track_search(request: Request):
     return {"status": "tracked"}
 
 # ============== CHATBOT ENDPOINT ==============
-
-from emergentintegrations.llm.chat import LlmChat, UserMessage
+# from emergentintegrations.llm.chat import LlmChat, UserMessage
 
 EMERGENT_LLM_KEY = os.environ.get("EMERGENT_LLM_KEY")
 
@@ -2468,7 +2467,7 @@ async def chat_endpoint(request: Request):
         )
         chat.with_model("openai", "gpt-5.2")
 
-        user_msg = UserMessage(text=message)
+        #user_msg = UserMessage(text=message)
         response = await chat.send_message(user_msg)
 
         # Store assistant response in DB
