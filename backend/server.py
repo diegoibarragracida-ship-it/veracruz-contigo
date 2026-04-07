@@ -15,7 +15,7 @@ from typing import List, Optional, Dict, Any
 import uuid
 from datetime import datetime, timezone, timedelta
 import bcrypt
-import jwt
+from jose import jwt
 import requests
 import re
 
